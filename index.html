@@ -27,32 +27,42 @@
 
     <button id="submit_btn">신청서 제출하기</button>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand(); // 전체 화면으로 확장
+ <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand(); 
 
-        document.getElementById('submit_btn').addEventListener('click', () => {
-            const data = {
-                name: document.getElementById('name').value,
-                birth: document.getElementById('birth').value,
-                phone_f: document.getElementById('phone_f').value,
-                phone_b: document.getElementById('phone_b').value,
-                s_date: document.getElementById('s_date').value,
-                e_date: document.getElementById('e_date').value,
-                edu_date: document.getElementById('edu_date').value,
-                reason: document.getElementById('reason').value,
-                manager: document.getElementById('manager').value
-            };
+    // 날짜 형식을 YYYY-MM-DD에서 YYMMDD로 바꾸는 함수
+    function formatDate(dateStr) {
+        if (!dateStr) return "";
+        // dateStr은 "2026-03-21" 형태입니다.
+        const parts = dateStr.split("-"); // ['2026', '03', '21']
+        const year = parts[0].substring(2); // '26' (뒤의 두 자리만)
+        const month = parts[1]; // '03'
+        const day = parts[2]; // '21'
+        return year + month + day; // '260321'
+    }
 
-            // 모든 칸이 채워졌는지 확인
-            if (Object.values(data).some(val => !val)) {
-                alert("모든 항목을 입력해주세요.");
-                return;
-            }
+    document.getElementById('submit_btn').addEventListener('click', () => {
+        const data = {
+            name: document.getElementById('name').value,
+            birth: document.getElementById('birth').value, // 생년월일은 이미 숫자 입력
+            phone_f: document.getElementById('phone_f').value,
+            phone_b: document.getElementById('phone_b').value,
+            // 날짜들은 모두 변환 함수를 거칩니다.
+            s_date: formatDate(document.getElementById('s_date').value),
+            e_date: formatDate(document.getElementById('e_date').value),
+            edu_date: formatDate(document.getElementById('edu_date').value),
+            reason: document.getElementById('reason').value,
+            manager: document.getElementById('manager').value
+        };
 
-            // 텔레그램 봇으로 데이터 전송
-            tg.sendData(JSON.stringify(data));
-        });
-    </script>
+        if (Object.values(data).some(val => !val)) {
+            alert("모든 항목을 입력해주세요.");
+            return;
+        }
+
+        tg.sendData(JSON.stringify(data));
+    });
+</script>
 </body>
 </html>
