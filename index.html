@@ -3,66 +3,232 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>출입 신청서</title>
+    <title>한화 출입 신청 시스템</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; background-color: #efeff4; padding: 20px; color: #333; }
-        .form-group { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; color: #666; }
-        input, textarea { width: 100%; border: none; font-size: 16px; outline: none; padding: 5px 0; border-bottom: 1px solid #ddd; }
-        button { width: 100%; padding: 15px; background: #0088cc; color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+        /* 한화 브랜드 컬러 정의 */
+        :root {
+            --hw-orange: #FF6600;    /* 한화 오렌지 */
+            --hw-dark: #222222;      /* 메인 텍스트 */
+            --hw-gray: #767676;      /* 서브 텍스트 */
+            --hw-bg: #F4F4F4;        /* 배경색 */
+            --hw-white: #FFFFFF;
+        }
+
+        body { 
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background-color: var(--hw-bg); 
+            padding: 20px; 
+            color: var(--hw-dark); 
+            line-height: 1.6; 
+            margin: 0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-top: 10px;
+        }
+
+        h3 { 
+            color: var(--hw-orange); 
+            font-size: 22px;
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .form-group { 
+            background: var(--hw-white); 
+            padding: 18px; 
+            border-radius: 8px; 
+            margin-bottom: 15px; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05); 
+            border-left: 4px solid var(--hw-white); 
+            transition: all 0.3s;
+        }
+
+        /* 입력창 포커스 시 오렌지색 왼쪽 라인 강조 */
+        .form-group:focus-within {
+            border-left: 4px solid var(--hw-orange);
+            box-shadow: 0 4px 12px rgba(255, 102, 0, 0.1);
+        }
+
+        label { 
+            display: block; 
+            font-size: 13px; 
+            font-weight: 700; 
+            margin-bottom: 8px; 
+            color: var(--hw-dark); 
+        }
+
+        .sub-label { 
+            font-size: 11px; 
+            color: var(--hw-gray); 
+            font-weight: normal; 
+            display: block;
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        input { 
+            width: 100%; 
+            border: none; 
+            font-size: 16px; 
+            outline: none; 
+            padding: 10px 0; 
+            border-bottom: 1.5px solid #E0E0E0; 
+            background: transparent;
+            color: var(--hw-dark);
+        }
+
+        input:focus { 
+            border-bottom: 1.5px solid var(--hw-orange); 
+        }
+
+        /* 제출 버튼 */
+        button { 
+            width: 100%; 
+            padding: 18px; 
+            background: var(--hw-orange); 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            font-size: 18px; 
+            font-weight: bold; 
+            margin-top: 20px; 
+            margin-bottom: 30px;
+            cursor: pointer; 
+            box-shadow: 0 4px 10px rgba(255, 102, 0, 0.2);
+            transition: all 0.2s;
+        }
+
+        button:active { 
+            background: #E65C00; 
+            transform: scale(0.98);
+        }
+
+        /* 숫자 입력창 화살표 제거 */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
     </style>
 </head>
 <body>
-    <h3>📋 출입 신청 양식</h3>
-    <div class="form-group"><label>성함</label><input type="text" id="name" placeholder="김한화"></div>
-    <div class="form-group"><label>생년월일(8자리)</label><input type="number" id="birth" placeholder="19900101"></div>
-    <div class="form-group"><label>휴대전화 앞자리(4개)</label><input type="number" id="phone_f" placeholder="1234"></div>
-    <div class="form-group"><label>휴대전화 뒷자리(4개)</label><input type="number" id="phone_b" placeholder="5678"></div>
-    <div class="form-group"><label>출입 시작 날짜 예시)260320</label><input type="date" id="s_date"></div>
-    <div class="form-group"><label>출입 종료 날짜 예시)260320</label><input type="date" id="e_date"></div>
-    <div class="form-group"><label>신규교육 신청 날짜 예시)260320,\n\n 필요없다면 출입 시작날짜로 선택해주세요.</label><input type="date" id="edu_date"></div>
-    <div class="form-group"><label>방문 사유(공사명)</label><input type="text" id="reason" placeholder="시설 보수 공사"></div>
-    <div class="form-group"><label>담당자 성함 예시) 강병근(O), 강병근프로(X)</label><input type="text" id="manager" placeholder="강병근"></div>
+    <div class="container">
+        <div class="header">
+            <h3>Hanwha</h3>
+            <div style="font-size: 14px; color: #555; margin-top: 5px; font-weight: 600;">출입 신청 시스템</div>
+        </div>
 
-    <button id="submit_btn">신청서 제출하기</button>
+        <div class="form-group">
+            <label>방문객 성함</label>
+            <input type="text" id="name" placeholder="예: 홍길동">
+        </div>
 
-<script>
-    const tg = window.Telegram.WebApp;
-    tg.expand(); 
+        <div class="form-group">
+            <label>생년월일(8자리)</label>
+            <input type="number" id="birth" placeholder="예: 19900101" oninput="limitLength(this, 8)">
+        </div>
 
-    // 날짜 형식을 YYYY-MM-DD에서 YYYYMMDD(8자리)로 바꾸는 함수
-    function formatDate(dateStr) {
-        if (!dateStr) return "";
-        // dateStr은 "2026-03-21" 형태입니다.
-        const parts = dateStr.split("-"); // ['2026', '03', '21']
-        const year = parts[0];  // '2026' (4자리 그대로 사용)
-        const month = parts[1]; // '03'
-        const day = parts[2];   // '21'
-        return year + month + day; // '20260321'
-    }
+        <div class="form-group">
+            <label>휴대전화 앞자리(4개)</label>
+            <input type="number" id="phone_f" placeholder="1234" oninput="limitLength(this, 4)">
+        </div>
 
-    document.getElementById('submit_btn').addEventListener('click', () => {
-        const data = {
-            name: document.getElementById('name').value,
-            birth: document.getElementById('birth').value,
-            phone_f: document.getElementById('phone_f').value,
-            phone_b: document.getElementById('phone_b').value,
-            // 8자리 날짜 형식 적용
-            s_date: formatDate(document.getElementById('s_date').value),
-            e_date: formatDate(document.getElementById('e_date').value),
-            edu_date: formatDate(document.getElementById('edu_date').value),
-            reason: document.getElementById('reason').value,
-            manager: document.getElementById('manager').value
-        };
+        <div class="form-group">
+            <label>휴대전화 뒷자리(4개)</label>
+            <input type="number" id="phone_b" placeholder="5678" oninput="limitLength(this, 4)">
+        </div>
 
-        if (Object.values(data).some(val => !val)) {
-            alert("모든 항목을 입력해주세요.");
-            return;
+        <div class="form-group">
+            <label>출입 시작 날짜</label>
+            <input type="date" id="s_date">
+        </div>
+
+        <div class="form-group">
+            <label>출입 종료 날짜</label>
+            <input type="date" id="e_date">
+        </div>
+
+        <div class="form-group">
+            <label>신규교육 신청 날짜
+                <span class="sub-label">(필요없다면 출입 시작날짜로 선택해주세요.)</span>
+            </label>
+            <input type="date" id="edu_date">
+        </div>
+
+        <div class="form-group">
+            <label>방문 사유(공사명)</label>
+            <input type="text" id="reason" placeholder="예: 설비 보수 공사">
+        </div>
+
+        <div class="form-group">
+            <label>담당자 성함</label>
+            <input type="text" id="manager" placeholder="예: 강병근" oninput="limitLength(this, 3)">
+        </div>
+
+        <button id="submit_btn">신청서 제출하기</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // 글자 수 제한 함수
+        function limitLength(el, maxLength) {
+            if (el.value.length > maxLength) {
+                el.value = el.value.slice(0, maxLength);
+            }
         }
 
-        tg.sendData(JSON.stringify(data));
-    });
-</script>
+        // YYYY-MM-DD -> YYYYMMDD 변환 함수
+        function formatDate(dateStr) {
+            if (!dateStr) return "";
+            return dateStr.replace(/-/g, "");
+        }
+
+        document.getElementById('submit_btn').addEventListener('click', () => {
+            const data = {
+                name: document.getElementById('name').value,
+                birth: document.getElementById('birth').value,
+                phone_f: document.getElementById('phone_f').value,
+                phone_b: document.getElementById('phone_b').value,
+                s_date: formatDate(document.getElementById('s_date').value),
+                e_date: formatDate(document.getElementById('e_date').value),
+                edu_date: formatDate(document.getElementById('edu_date').value),
+                reason: document.getElementById('reason').value,
+                manager: document.getElementById('manager').value
+            };
+
+            // 유효성 검사
+            if (data.birth.length !== 8) {
+                alert("생년월일 8자리를 정확히 입력해주세요.");
+                return;
+            }
+            if (data.phone_f.length !== 4 || data.phone_b.length !== 4) {
+                alert("전화번호를 각각 4자리씩 입력해주세요.");
+                return;
+            }
+            if (data.manager.length < 2) {
+                alert("담당자 성함을 정확히 입력해주세요.");
+                return;
+            }
+            if (Object.values(data).some(val => !val)) {
+                alert("모든 항목을 입력해주세요.");
+                return;
+            }
+
+            // 데이터 전송
+            tg.sendData(JSON.stringify(data));
+        });
+    </script>
 </body>
 </html>
