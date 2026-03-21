@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>한화 출입 신청 시스템</title>
+    <title>한화임팩트 울산공장 출입신청 시스템</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         /* 한화 브랜드 컬러 정의 */
@@ -124,13 +124,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <h3>Hanwha</h3>
+            <h3>한화임팩트 울산공장</h3>
             <div style="font-size: 14px; color: #555; margin-top: 5px; font-weight: 600;">출입 신청 시스템</div>
         </div>
 
         <div class="form-group">
             <label>방문객 성함</label>
-            <input type="text" id="name" placeholder="예: 홍길동">
+            <input type="text" id="name" placeholder="예: 김한화">
         </div>
 
         <div class="form-group">
@@ -167,11 +167,13 @@
 
         <div class="form-group">
             <label>방문 사유(공사명)</label>
-            <input type="text" id="reason" placeholder="예: 설비 보수 공사">
+            <input type="text" id="reason" placeholder="예: 3공장 정기보수 설비 보수 공사">
         </div>
 
         <div class="form-group">
-            <label>담당자 성함</label>
+            <label>담당자 성함
+                            <span class="sub-label">직함은 작성안하셔도 됩니다. 강병근 프로(X)</span
+            </label>
             <input type="text" id="manager" placeholder="예: 강병근" oninput="limitLength(this, 3)">
         </div>
 
