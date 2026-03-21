@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>출입 신청서</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #efeff4; padding: 20px; color: #333; }
+        .form-group { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; color: #666; }
+        input, textarea { width: 100%; border: none; font-size: 16px; outline: none; padding: 5px 0; border-bottom: 1px solid #ddd; }
+        button { width: 100%; padding: 15px; background: #0088cc; color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h3>📋 출입 신청 양식</h3>
+    <div class="form-group"><label>성함</label><input type="text" id="name" placeholder="홍길동"></div>
+    <div class="form-group"><label>생년월일(6자리)</label><input type="number" id="birth" placeholder="900101"></div>
+    <div class="form-group"><label>휴대전화 앞자리(4개)</label><input type="number" id="phone_f" placeholder="1234"></div>
+    <div class="form-group"><label>휴대전화 뒷자리(4개)</label><input type="number" id="phone_b" placeholder="5678"></div>
+    <div class="form-group"><label>출입 시작 날짜</label><input type="date" id="s_date"></div>
+    <div class="form-group"><label>출입 종료 날짜</label><input type="date" id="e_date"></div>
+    <div class="form-group"><label>신규교육 신청 날짜</label><input type="date" id="edu_date"></div>
+    <div class="form-group"><label>방문 사유(공사명)</label><input type="text" id="reason" placeholder="시설 보수 공사"></div>
+    <div class="form-group"><label>담당자 성함</label><input type="text" id="manager" placeholder="공무팀 강병근"></div>
+
+    <button id="submit_btn">신청서 제출하기</button>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // 전체 화면으로 확장
+
+        document.getElementById('submit_btn').addEventListener('click', () => {
+            const data = {
+                name: document.getElementById('name').value,
+                birth: document.getElementById('birth').value,
+                phone_f: document.getElementById('phone_f').value,
+                phone_b: document.getElementById('phone_b').value,
+                s_date: document.getElementById('s_date').value,
+                e_date: document.getElementById('e_date').value,
+                edu_date: document.getElementById('edu_date').value,
+                reason: document.getElementById('reason').value,
+                manager: document.getElementById('manager').value
+            };
+
+            // 모든 칸이 채워졌는지 확인
+            if (Object.values(data).some(val => !val)) {
+                alert("모든 항목을 입력해주세요.");
+                return;
+            }
+
+            // 텔레그램 봇으로 데이터 전송
+            tg.sendData(JSON.stringify(data));
+        });
+    </script>
+</body>
+</html>
