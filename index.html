@@ -26,6 +26,7 @@
         .header { text-align: center; margin-bottom: 25px; padding-top: 10px; }
         h3 { color: var(--hw-orange); font-size: 22px; margin: 0; font-weight: 800; letter-spacing: -0.5px; }
         .container { max-width: 500px; margin: 0 auto; }
+        
         .form-group { 
             background: var(--hw-white); 
             padding: 18px; 
@@ -36,10 +37,23 @@
             transition: all 0.3s;
         }
         .form-group:focus-within { border-left: 4px solid var(--hw-orange); box-shadow: 0 4px 12px rgba(255, 102, 0, 0.1); }
+        
         label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--hw-dark); }
         .sub-label { font-size: 11px; color: var(--hw-gray); font-weight: normal; display: block; margin-top: 4px; line-height: 1.4; }
-        input { width: 100%; border: none; font-size: 16px; outline: none; padding: 10px 0; border-bottom: 1.5px solid #E0E0E0; background: transparent; color: var(--hw-dark); }
-        input:focus { border-bottom: 1.5px solid var(--hw-orange); }
+        
+        input, select { 
+            width: 100%; border: none; font-size: 16px; outline: none; padding: 10px 0; 
+            border-bottom: 1.5px solid #E0E0E0; background: transparent; color: var(--hw-dark); 
+            border-radius: 0;
+        }
+        input:focus, select:focus { border-bottom: 1.5px solid var(--hw-orange); }
+        
+        /* Select 화살표 디자인 커스텀 */
+        select {
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23767676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>') no-repeat right center;
+            background-size: 15px;
+        }
+
         button { 
             width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; 
             border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 20px; 
@@ -54,6 +68,11 @@
         <div class="header">
             <h3>한화임팩트 울산공장</h3>
             <div style="font-size: 14px; color: #555; margin-top: 5px; font-weight: 600;">내방객 출입 신청 시스템</div>
+        </div>
+
+        <div class="form-group">
+            <label>업체명</label>
+            <input type="text" id="company" placeholder="예: 한화시스템">
         </div>
 
         <div class="form-group">
@@ -77,8 +96,33 @@
         </div>
 
         <div class="form-group">
-            <label>출입날짜</label>
+            <label>출입일</label>
             <input type="date" id="s_date">
+        </div>
+
+        <div class="form-group">
+            <label>인원구분</label>
+            <select id="person_type">
+                <option value="" disabled selected>선택해주세요</option>
+                <option value="업무협의">업무협의</option>
+                <option value="현장점검">현장점검</option>
+                <option value="진단/조사">진단/조사</option>
+                <option value="면접">면접</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>행선지</label>
+            <select id="dest1">
+                <option value="" disabled selected>선택해주세요</option>
+                <option value="공정지역">공정지역</option>
+                <option value="비공정지역">비공정지역</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>행선지상세</label>
+            <input type="text" id="dest2" placeholder="예: NO1 PTA">
         </div>
 
         <div class="form-group">
@@ -88,7 +132,7 @@
 
         <div class="form-group">
             <label>담당자 성함
-                <span class="sub-label">직함은 작성안하셔도 됩니다. 강병근 프로(X)</span>
+                <span class="sub-label">직함은 제외하고 성함만 입력해주세요.</span>
             </label>
             <input type="text" id="manager" placeholder="예: 강병근" oninput="limitLength(this, 3)">
         </div>
@@ -104,36 +148,29 @@
             if (el.value.length > maxLength) { el.value = el.value.slice(0, maxLength); }
         }
 
-        function formatDate(dateStr) {
-            if (!dateStr) return "";
-            return dateStr.replace(/-/g, "");
-        }
-
         document.getElementById('submit_btn').addEventListener('click', () => {
             const data = {
-                type: "내방객", // 이 줄을 추가하세요!
+                type: "내방객",
+                company: document.getElementById('company').value,
                 name: document.getElementById('name').value,
                 birth: document.getElementById('birth').value,
                 phone_f: document.getElementById('phone_f').value,
                 phone_b: document.getElementById('phone_b').value,
-                s_date: formatDate(document.getElementById('s_date').value),
-                // 화면에서 지운 값들은 여기서 "-" 로 채워서 보냅니다.
-                e_date: "-", 
-                edu_date: "-",
+                s_date: document.getElementById('s_date').value,
+                person_type: document.getElementById('person_type').value,
+                dest1: document.getElementById('dest1').value,
+                dest2: document.getElementById('dest2').value,
                 reason: document.getElementById('reason').value,
                 manager: document.getElementById('manager').value
             };
 
-            // 유효성 검사 (화면에 있는 항목들만 체크)
-            if (data.birth.length !== 8) { alert("생년월일 8자리를 정확히 입력해주세요."); return; }
-            if (data.phone_f.length !== 4 || data.phone_b.length !== 4) { alert("전화번호를 각각 4자리씩 입력해주세요."); return; }
-            if (data.manager.length < 2) { alert("담당자 성함을 정확히 입력해주세요."); return; }
-
-            // 필수 항목 체크 (e_date와 edu_date는 "-"이므로 통과됨)
-            if (!data.name || !data.birth || !data.phone_f || !data.phone_b || !data.s_date || !data.reason || !data.manager) {
-                alert("모든 항목을 입력해주세요.");
-                return;
-            }
+            // 유효성 검사
+            if (!data.company) { alert("업체명을 입력해주세요."); return; }
+            if (data.birth.length !== 8) { alert("생년월일 8자리를 입력해주세요."); return; }
+            if (!data.person_type) { alert("인원구분을 선택해주세요."); return; }
+            if (!data.dest1) { alert("행선지를 선택해주세요."); return; }
+            if (!data.dest2) { alert("행선지상세를 입력해주세요."); return; }
+            if (Object.values(data).some(val => !val)) { alert("모든 항목을 입력해주세요."); return; }
 
             tg.sendData(JSON.stringify(data));
         });
