@@ -27,28 +27,28 @@
 
     <button id="submit_btn">신청서 제출하기</button>
 
- <script>
+<script>
     const tg = window.Telegram.WebApp;
     tg.expand(); 
 
-    // 날짜 형식을 YYYY-MM-DD에서 YYMMDD로 바꾸는 함수
+    // 날짜 형식을 YYYY-MM-DD에서 YYYYMMDD(8자리)로 바꾸는 함수
     function formatDate(dateStr) {
         if (!dateStr) return "";
         // dateStr은 "2026-03-21" 형태입니다.
         const parts = dateStr.split("-"); // ['2026', '03', '21']
-        const year = parts[0].substring(2); // '26' (뒤의 두 자리만)
+        const year = parts[0];  // '2026' (4자리 그대로 사용)
         const month = parts[1]; // '03'
-        const day = parts[2]; // '21'
-        return year + month + day; // '260321'
+        const day = parts[2];   // '21'
+        return year + month + day; // '20260321'
     }
 
     document.getElementById('submit_btn').addEventListener('click', () => {
         const data = {
             name: document.getElementById('name').value,
-            birth: document.getElementById('birth').value, // 생년월일은 이미 숫자 입력
+            birth: document.getElementById('birth').value,
             phone_f: document.getElementById('phone_f').value,
             phone_b: document.getElementById('phone_b').value,
-            // 날짜들은 모두 변환 함수를 거칩니다.
+            // 8자리 날짜 형식 적용
             s_date: formatDate(document.getElementById('s_date').value),
             e_date: formatDate(document.getElementById('e_date').value),
             edu_date: formatDate(document.getElementById('edu_date').value),
