@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>한화임팩트 정비이력 작성</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --hw-orange: #FF6600;
+            --hw-dark: #222222;
+            --hw-gray: #767676;
+            --hw-bg: #F4F4F4;
+            --hw-white: #FFFFFF;
+        }
+
+        body { 
+            font-family: 'Pretendard', -apple-system, sans-serif; 
+            background-color: var(--hw-bg); 
+            padding: 20px; color: var(--hw-dark); margin: 0;
+        }
+
+        .header { text-align: center; margin-bottom: 20px; }
+        h3 { color: var(--hw-orange); font-size: 20px; margin: 0; font-weight: 800; }
+        .container { max-width: 500px; margin: 0 auto; }
+        
+        .form-group { 
+            background: var(--hw-white); padding: 15px; border-radius: 8px; 
+            margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+        
+        input, select, textarea { 
+            width: 100%; border: none; font-size: 16px; outline: none; padding: 8px 0; 
+            border-bottom: 1.5px solid #E0E0E0; background: transparent; color: var(--hw-dark);
+            box-sizing: border-box;
+        }
+        input:focus, select:focus, textarea:focus { border-bottom: 1.5px solid var(--hw-orange); }
+
+        #cancel_reason_group { display: none; background: #FFF3E0; border-left: 4px solid var(--hw-orange); }
+
+        button { 
+            width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; 
+            border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 20px; margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h3>정비 이력 작성 (RPA용)</h3>
+        </div>
+
+        <div class="form-group">
+            <label>정비오더 (7자리 숫자)</label>
+            <input type="number" id="order_id" placeholder="예: 4183088" oninput="limitLength(this, 7)">
+        </div>
+
+        <div class="form-group">
+            <label>작업 시작일</label>
+            <input type="date" id="s_date">
+        </div>
+        <div class="form-group">
+            <label>작업 종료일</label>
+            <input type="date" id="e_date">
+        </div>
+
+        <div class="form-group">
+            <label>작업여부</label>
+            <select id="work_status" onchange="toggleCancelReason()">
+                <option value="정상작업">정상작업</option>
+                <option value="오더취소">오더취소</option>
+                <option value="재작업">재작업</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="cancel_reason_group">
+            <label>오더취소 사유</label>
+            <input type="text" id="cancel_reason" placeholder="취소 사유를 입력하세요.">
+        </div>
+
+        <div class="form-group">
+            <label>현상</label>
+            <input type="text" id="phenom" placeholder="예: 외부 Leak 발생">
+        </div>
+
+        <div class="form-group">
+            <label>문제점</label>
+            <input type="text" id="problem" placeholder="예: Gasket 파손">
+        </div>
+
+        <div class="form-group">
+            <label>작업사항</label>
+            <input type="text" id="work_detail" placeholder="예: Gasket 교체 완료">
+        </div>
+
+        <div class="form-group">
+            <label>원인</label>
+            <input type="text" id="cause" placeholder="예: 장기사용에 의한 파손으로 추정">
+        </div>
+
+        <div class="form-group">
+            <label>작업시간 (숫자만)</label>
+            <input type="number" id="work_time" placeholder="예: 1">
+        </div>
+
+        <hr style="border: 0; border-top: 1px dashed #ccc; margin: 20px 0;">
+
+        <div class="form-group">
+            <label>결재자</label>
+            <input type="text" id="approver1" placeholder="성함을 입력하세요.">
+        </div>
+
+        <div class="form-group">
+            <label>차상위 결재자</label>
+            <input type="text" id="approver2" placeholder="성함을 입력하세요 (선택).">
+        </div>
+
+        <div class="form-group">
+            <label>참조</label>
+            <input type="text" id="ref" placeholder="참조인 성함 (선택).">
+        </div>
+
+        <div class="form-group">
+            <label>수신</label>
+            <input type="text" id="receive" placeholder="수신인 성함 (선택).">
+        </div>
+
+        <button id="submit_btn">데이터 전송 (RPA용)</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        function limitLength(el, maxLength) {
+            if (el.value.length > maxLength) { el.value = el.value.slice(0, maxLength); }
+        }
+
+        function toggleCancelReason() {
+            const status = document.getElementById('work_status').value;
+            const cancelGroup = document.getElementById('cancel_reason_group');
+            cancelGroup.style.display = (status === '오더취소') ? 'block' : 'none';
+        }
+
+        document.getElementById('submit_btn').addEventListener('click', () => {
+            const data = {
+                type: "정비이력",
+                order_id: document.getElementById('order_id').value,
+                s_date: document.getElementById('s_date').value,
+                e_date: document.getElementById('e_date').value,
+                work_status: document.getElementById('work_status').value,
+                cancel_reason: document.getElementById('cancel_reason').value,
+                phenom: document.getElementById('phenom').value,
+                problem: document.getElementById('problem').value,
+                work_detail: document.getElementById('work_detail').value,
+                cause: document.getElementById('cause').value,
+                work_time: document.getElementById('work_time').value,
+                approver1: document.getElementById('approver1').value,
+                approver2: document.getElementById('approver2').value,
+                ref: document.getElementById('ref').value,
+                receive: document.getElementById('receive').value
+            };
+
+            // 필수값 체크
+            if(data.order_id.length !== 7) { alert("정비오더 7자리를 입력해주세요."); return; }
+            if(!data.s_date || !data.e_date) { alert("작업 날짜를 선택해주세요."); return; }
+            if(!data.approver1) { alert("최소 1명의 결재자를 입력해주세요."); return; }
+
+            tg.sendData(JSON.stringify(data));
+        });
+    </script>
+</body>
+</html>
