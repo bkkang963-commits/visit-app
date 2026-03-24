@@ -31,12 +31,12 @@
         
         label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
         
-        input, select, textarea { 
+        input, select { 
             width: 100%; border: none; font-size: 16px; outline: none; padding: 8px 0; 
             border-bottom: 1.5px solid #E0E0E0; background: transparent; color: var(--hw-dark);
             box-sizing: border-box;
         }
-        input:focus, select:focus, textarea:focus { border-bottom: 1.5px solid var(--hw-orange); }
+        input:focus { border-bottom: 1.5px solid var(--hw-orange); }
 
         #cancel_reason_group { display: none; background: #FFF3E0; border-left: 4px solid var(--hw-orange); }
 
@@ -84,22 +84,18 @@
             <label>현상</label>
             <input type="text" id="phenom" placeholder="예: 외부 Leak 발생">
         </div>
-
         <div class="form-group">
             <label>문제점</label>
             <input type="text" id="problem" placeholder="예: Gasket 파손">
         </div>
-
         <div class="form-group">
             <label>작업사항</label>
             <input type="text" id="work_detail" placeholder="예: Gasket 교체 완료">
         </div>
-
         <div class="form-group">
             <label>원인</label>
             <input type="text" id="cause" placeholder="예: 장기사용에 의한 파손으로 추정">
         </div>
-
         <div class="form-group">
             <label>작업시간 (숫자만)</label>
             <input type="number" id="work_time" placeholder="예: 1">
@@ -108,13 +104,13 @@
         <hr style="border: 0; border-top: 1px dashed #ccc; margin: 20px 0;">
 
         <div class="form-group">
-            <label>결재자</label>
+            <label>작성자</label>
             <input type="text" id="approver1" placeholder="성함을 입력하세요.">
         </div>
 
         <div class="form-group">
-            <label>차상위 결재자</label>
-            <input type="text" id="approver2" placeholder="성함을 입력하세요 (선택).">
+            <label>결재자</label>
+            <input type="text" id="approver2" placeholder="결재자 성함을 입력하세요.">
         </div>
 
         <div class="form-group">
@@ -157,16 +153,15 @@
                 work_detail: document.getElementById('work_detail').value,
                 cause: document.getElementById('cause').value,
                 work_time: document.getElementById('work_time').value,
-                approver1: document.getElementById('approver1').value,
-                approver2: document.getElementById('approver2').value,
+                approver1: document.getElementById('approver1').value, // 엑셀 '결재자1'로 전송됨
+                approver2: document.getElementById('approver2').value, // 엑셀 '결재자2'로 전송됨
                 ref: document.getElementById('ref').value,
                 receive: document.getElementById('receive').value
             };
 
-            // 필수값 체크
             if(data.order_id.length !== 7) { alert("정비오더 7자리를 입력해주세요."); return; }
-            if(!data.s_date || !data.e_date) { alert("작업 날짜를 선택해주세요."); return; }
-            if(!data.approver1) { alert("최소 1명의 결재자를 입력해주세요."); return; }
+            if(!data.s_date) { alert("작업 시작일을 선택해주세요."); return; }
+            if(!data.approver1) { alert("작성자 성함을 입력해주세요."); return; }
 
             tg.sendData(JSON.stringify(data));
         });
