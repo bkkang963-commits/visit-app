@@ -112,7 +112,10 @@
             <label>결재자</label>
             <input type="text" id="approver2" placeholder="결재자 성함을 입력하세요.">
         </div>
-
+        <div class="form-group">
+            <label>차상위 결재자</label>
+            <input type="text" id="approver3" placeholder="차상위 결재자 성함 (선택).">
+        </div>
         <div class="form-group">
             <label>참조</label>
             <input type="text" id="ref" placeholder="참조인 성함 (선택).">
@@ -155,6 +158,7 @@
                 work_time: document.getElementById('work_time').value,
                 approver1: document.getElementById('approver1').value, // 엑셀 '결재자1'로 전송됨
                 approver2: document.getElementById('approver2').value, // 엑셀 '결재자2'로 전송됨
+                approver3: document.getElementById('approver3').value, // 추가된 데이터
                 ref: document.getElementById('ref').value,
                 receive: document.getElementById('receive').value
             };
