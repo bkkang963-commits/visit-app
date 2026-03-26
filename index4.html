@@ -13,15 +13,15 @@
         h3 { color: var(--hw-orange); margin: 0; font-weight: 800; }
         .form-group { background: var(--hw-white); padding: 15px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
-        input, select { width: 100%; border: none; font-size: 16px; outline: none; padding: 8px 0; border-bottom: 1.5px solid #E0E0E0; background: transparent; }
+        input, select { width: 100%; border: none; font-size: 16px; outline: none; padding: 8px 0; border-bottom: 1.5px solid #E0E0E0; background: transparent; box-sizing: border-box; }
         input:focus, select:focus { border-bottom: 1.5px solid var(--hw-orange); }
-        .sub-info { font-size: 11px; color: #767676; margin-top: 4px; }
-        button { width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+        .sub-info { font-size: 11px; color: #767676; margin-top: 4px; line-height: 1.4; }
+        button { width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 20px; margin-bottom: 40px; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header"><h3>정비 오더 신청</h3></div>
+        <div class="header"><h3>정비 오더 신청 (index4)</h3></div>
 
         <div class="form-group">
             <label>정비오더내역 / 작업계획내역</label>
@@ -68,12 +68,8 @@
         </div>
 
         <div class="form-group">
-            <label>작업시작일 (계획작업일1)</label>
-            <input type="date" id="s_date">
-        </div>
-
-        <div class="form-group">
-            <label>작업종료일 (계획작업일2)</label>
+            <label>작업기간 (시작일/종료일)</label>
+            <input type="date" id="s_date" style="margin-bottom:10px;">
             <input type="date" id="e_date">
         </div>
 
@@ -93,25 +89,28 @@
         </div>
 
         <div class="form-group">
-            <label>작업자 (최대 5명)</label>
-            <input type="text" id="worker1" placeholder="작업자1 (필수)" style="margin-bottom:5px;">
-            <input type="text" id="worker2" placeholder="작업자2 (선택)" style="margin-bottom:5px;">
-            <input type="text" id="worker3" placeholder="작업자3 (선택)" style="margin-bottom:5px;">
-            <input type="text" id="worker4" placeholder="작업자4 (선택)" style="margin-bottom:5px;">
-            <input type="text" id="worker5" placeholder="작업자5 (선택)">
+            <label>작업자 명단 (최대 5명)</label>
+            <input type="text" id="worker1" placeholder="작업자 1 (필수)" style="margin-bottom:5px;">
+            <input type="text" id="worker2" placeholder="작업자 2 (선택)" style="margin-bottom:5px;">
+            <input type="text" id="worker3" placeholder="작업자 3 (선택)" style="margin-bottom:5px;">
+            <input type="text" id="worker4" placeholder="작업자 4 (선택)" style="margin-bottom:5px;">
+            <input type="text" id="worker5" placeholder="작업자 5 (선택)">
         </div>
 
         <div class="form-group">
-            <label>결재자</label>
-            <input type="text" id="app1" placeholder="결재자 성함">
+            <label>결재 및 수신 라인</label>
+            <input type="text" id="app1" placeholder="결재자 1 (작성자/필수)" style="margin-bottom:5px;">
+            <input type="text" id="app2" placeholder="결재자 2 (선택)" style="margin-bottom:15px;">
+            
+            <input type="text" id="ref1" placeholder="참조 1 (선택)" style="margin-bottom:5px;">
+            <input type="text" id="ref2" placeholder="참조 2 (선택)" style="margin-bottom:15px;">
+            
+            <input type="text" id="recv1" placeholder="수신 1 (선택)" style="margin-bottom:5px;">
+            <input type="text" id="recv2" placeholder="수신 2 (선택)">
+            <div class="sub-info">※ 결재자 1은 본인 성함을 입력하세요.</div>
         </div>
 
-        <div class="form-group">
-            <label>차상위결재자</label>
-            <input type="text" id="app2" placeholder="차상위결재자 성함">
-        </div>
-
-        <button id="submit_btn">신청서 제출</button>
+        <button id="submit_btn">정비오더 신청서 제출</button>
     </div>
 
     <script>
@@ -121,7 +120,6 @@
         function toggleSubOrder() {
             const main = document.getElementById('order_main').value;
             const subGroup = document.getElementById('sub_order_group');
-            // 자산화사업, 고장통지는 (소) 유형 질문 숨김
             subGroup.style.display = (main === '자산화사업' || main === '고장통지') ? 'none' : 'block';
         }
 
@@ -129,18 +127,13 @@
             const main = document.getElementById('order_main').value;
             const sub = document.getElementById('order_sub').value;
             
-            // 정비오더유형 병합 로직
             let finalOrderType = "";
             if (main === "예방보전") finalOrderType = main + "/" + sub;
             else if (["정기보수", "소정수", "촉매세정"].includes(main)) {
-                // "정기보수" -> "정수"로 변환하여 합침
                 let prefix = main === "정기보수" ? "정수" : main;
                 finalOrderType = prefix + sub;
-            } else {
-                finalOrderType = main; // 자산화사업, 고장통지
-            }
+            } else { finalOrderType = main; }
 
-            // 인원 계산 (작업자 칸에 이름이 있는 개수만 체크)
             const workers = [
                 document.getElementById('worker1').value.trim(),
                 document.getElementById('worker2').value.trim(),
@@ -155,18 +148,22 @@
                 order_type: finalOrderType,
                 activity_type: document.getElementById('activity_type').value,
                 equipment: document.getElementById('equipment').value,
-                plan_date1: document.getElementById('s_date').value.replace(/-/g, ""), // 20250214 형식
+                plan_date1: document.getElementById('s_date').value.replace(/-/g, ""),
                 plan_date2: document.getElementById('e_date').value.replace(/-/g, ""),
                 part: document.getElementById('part').value,
                 worker_count: workers.length,
                 work_time: document.getElementById('work_time').value,
                 workers: workers,
-                app1: document.getElementById('app1').value,
-                app2: document.getElementById('app2').value
+                app1: document.getElementById('app1').value.trim(),
+                app2: document.getElementById('app2').value.trim(),
+                ref1: document.getElementById('ref1').value.trim(),
+                ref2: document.getElementById('ref2').value.trim(),
+                recv1: document.getElementById('recv1').value.trim(),
+                recv2: document.getElementById('recv2').value.trim()
             };
 
-            if (!data.order_desc || !data.plan_date1 || workers.length === 0) {
-                alert("내역, 날짜, 최소 1명의 작업자를 입력해주세요.");
+            if (!data.order_desc || !data.plan_date1 || !data.app1 || workers.length === 0) {
+                alert("내역, 날짜, 작성자(결재1), 작업자1은 필수 입력 항목입니다.");
                 return;
             }
 
