@@ -11,17 +11,25 @@
         .container { max-width: 500px; margin: 0 auto; }
         .header { text-align: center; margin-bottom: 20px; }
         h3 { color: var(--hw-orange); margin: 0; font-weight: 800; }
+        
         .form-group { background: var(--hw-white); padding: 15px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+        label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 10px; color: #333; }
+        
+        /* 날짜 입력칸 내부 라벨 스타일 */
+        .date-item { margin-bottom: 12px; }
+        .date-item:last-child { margin-bottom: 0; }
+        .date-label { font-size: 12px; color: var(--hw-orange); font-weight: 600; margin-bottom: 4px; display: block; }
+        
         input, select { width: 100%; border: none; font-size: 16px; outline: none; padding: 8px 0; border-bottom: 1.5px solid #E0E0E0; background: transparent; box-sizing: border-box; }
         input:focus, select:focus { border-bottom: 1.5px solid var(--hw-orange); }
-        .sub-info { font-size: 11px; color: #767676; margin-top: 4px; line-height: 1.4; }
+        
+        .sub-info { font-size: 11px; color: #767676; margin-top: 8px; line-height: 1.4; }
         button { width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 20px; margin-bottom: 40px; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header"><h3>정비 오더 신청 (index4)</h3></div>
+        <div class="header"><h3>정비 오더 신청</h3></div>
 
         <div class="form-group">
             <label>정비오더내역 / 작업계획내역</label>
@@ -51,26 +59,15 @@
         </div>
 
         <div class="form-group">
-            <label>액티비티유형</label>
-            <select id="activity_type">
-                <option value="점검">점검</option><option value="개조/개선">개조/개선</option><option value="수리">수리</option>
-                <option value="교체">교체</option><option value="용접">용접</option><option value="제작">제작</option>
-                <option value="설치">설치</option><option value="이설">이설</option><option value="폐기">폐기</option>
-                <option value="철거">철거</option><option value="검/교정">검/교정</option><option value="분석">분석</option>
-                <option value="윤활">윤활</option><option value="검사">검사</option><option value="보온">보온</option>
-                <option value="외주">외주</option><option value="기타">기타</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label>대표설비</label>
-            <input type="text" id="equipment" placeholder="예: UAT-001">
-        </div>
-
-        <div class="form-group">
-            <label>작업기간 (시작일/종료일)</label>
-            <input type="date" id="s_date" style="margin-bottom:10px;">
-            <input type="date" id="e_date">
+            <label>작업 기간 설정</label>
+            <div class="date-item">
+                <span class="date-label">▶ 작업 시작일 (계획일1)</span>
+                <input type="date" id="s_date">
+            </div>
+            <div class="date-item" style="margin-top: 15px;">
+                <span class="date-label">▶ 작업 종료일 (계획일2)</span>
+                <input type="date" id="e_date">
+            </div>
         </div>
 
         <div class="form-group">
@@ -98,7 +95,7 @@
         </div>
 
         <div class="form-group">
-            <label>결재 및 수신 라인</label>
+            <label>결재 및 참조/수신 라인</label>
             <input type="text" id="app1" placeholder="결재자 1 (작성자/필수)" style="margin-bottom:5px;">
             <input type="text" id="app2" placeholder="결재자 2 (선택)" style="margin-bottom:15px;">
             
@@ -146,8 +143,6 @@
                 type: "정비오더",
                 order_desc: document.getElementById('order_desc').value,
                 order_type: finalOrderType,
-                activity_type: document.getElementById('activity_type').value,
-                equipment: document.getElementById('equipment').value,
                 plan_date1: document.getElementById('s_date').value.replace(/-/g, ""),
                 plan_date2: document.getElementById('e_date').value.replace(/-/g, ""),
                 part: document.getElementById('part').value,
@@ -163,7 +158,7 @@
             };
 
             if (!data.order_desc || !data.plan_date1 || !data.app1 || workers.length === 0) {
-                alert("내역, 날짜, 작성자(결재1), 작업자1은 필수 입력 항목입니다.");
+                alert("내역, 시작일, 작성자, 작업자1은 필수입니다.");
                 return;
             }
 
