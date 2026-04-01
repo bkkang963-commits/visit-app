@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>한화임팩트 작업허가서 신청</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root { --hw-orange: #FF6600; --hw-dark: #222222; --hw-bg: #F4F4F4; --hw-white: #FFFFFF; }
+        body { font-family: 'Pretendard', -apple-system, sans-serif; background-color: var(--hw-bg); padding: 20px; color: var(--hw-dark); margin: 0; }
+        .container { max-width: 500px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 20px; }
+        h3 { color: var(--hw-orange); margin: 0; font-weight: 800; text-transform: uppercase; }
+        .sub-header { font-size: 12px; color: #666; margin-top: 4px; }
+        
+        .form-group { background: var(--hw-white); padding: 15px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 10px; color: #333; }
+        
+        .date-label { font-size: 12px; color: var(--hw-orange); font-weight: 600; margin-bottom: 4px; display: block; }
+        
+        input, select, textarea { width: 100%; border: none; font-size: 16px; outline: none; padding: 8px 0; border-bottom: 1.5px solid #E0E0E0; background: transparent; box-sizing: border-box; }
+        input:focus, select:focus, textarea:focus { border-bottom: 1.5px solid var(--hw-orange); }
+        textarea { resize: none; font-family: inherit; }
+
+        /* 위험작업 선택용 체크박스 스타일 */
+        .check-group { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .check-item { display: flex; align-items: center; background: #f9f9f9; padding: 10px; border-radius: 4px; border: 1px solid #eee; }
+        .check-item input[type="checkbox"] { width: auto; margin-right: 10px; border-bottom: none; transform: scale(1.2); cursor: pointer; }
+        .check-item label { margin-bottom: 0; font-size: 14px; font-weight: 500; cursor: pointer; }
+
+        .info-box { background: #e3f2fd; color: #0d47a1; padding: 10px; border-radius: 4px; font-size: 12px; margin-top: 15px; border-left: 4px solid #1976d2; }
+        button { width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 25px; margin-bottom: 40px; cursor: pointer; box-shadow: 0 4px 6px rgba(255,102,0,0.2); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h3>작업허가서 신청</h3>
+            <div class="sub-header">Safe Work Permit Application</div>
+        </div>
+
+        <div class="form-group">
+            <label>상세오더 / 작업내용</label>
+            <input type="text" id="permit_desc" placeholder="예: 구미세관 등 기타설비 포장">
+        </div>
+
+        <div class="form-group">
+            <label>작업일시 (Date)</label>
+            <input type="date" id="permit_date">
+        </div>
+
+        <div class="form-group">
+            <label>작업장소 (Location)</label>
+            <input type="text" id="permit_loc" placeholder="예: 구미세관 등">
+        </div>
+
+        <div class="form-group">
+            <label>작업책임자 (시공사 소속)</label>
+            <input type="text" id="manager_name" placeholder="성함을 입력하세요.">
+        </div>
+
+        <div class="form-group">
+            <label>시공사 (업체명)</label>
+            <input type="text" id="company_name" placeholder="예: 장원공사">
+        </div>
+
+        <div class="form-group">
+            <label>신청인 (한화임팩트 담당자)</label>
+            <input type="text" id="applicant_name" placeholder="본인 성함을 입력하세요.">
+        </div>
+
+        <div class="form-group">
+            <label>해당되는 특수위험작업을 선택하세요 (미선택 시 '없음')</label>
+            <div class="check-group">
+                <div class="check-item">
+                    <input type="checkbox" id="risk_fire" value="화기작업">
+                    <label for="risk_fire">화기작업</class>
+                </div>
+                <div class="check-item">
+                    <input type="checkbox" id="risk_conf" value="밀폐공간">
+                    <label for="risk_conf">밀폐공간</class>
+                </div>
+                <div class="check-item">
+                    <input type="checkbox" id="risk_elec" value="전기작업">
+                    <label for="risk_elec">전기작업</class>
+                </div>
+                <div class="check-item">
+                    <input type="checkbox" id="risk_high" value="고소작업">
+                    <label for="risk_high">고소작업</class>
+                </div>
+                <div class="check-item">
+                    <input type="checkbox" id="risk_dig" value="굴착작업">
+                    <label for="risk_dig">굴착작업</class>
+                </div>
+                <div class="check-item">
+                    <input type="checkbox" id="risk_rad" value="방사선">
+                    <label for="risk_rad">방사선</class>
