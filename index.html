@@ -136,6 +136,11 @@
             </label>
             <input type="text" id="manager" placeholder="예: 강병근" oninput="limitLength(this, 3)">
         </div>
+<label>결재자 성함 (차상위)
+                <span class="sub-label">결재를 진행할 상급자 성함을 입력해주세요.</span>
+            </label>
+            <input type="text" id="approver" placeholder="예: 노정락" oninput="limitLength(this, 5)">
+        </div>
 
         <button id="submit_btn">신청서 제출하기</button>
     </div>
@@ -161,7 +166,8 @@
                 dest1: document.getElementById('dest1').value,
                 dest2: document.getElementById('dest2').value,
                 reason: document.getElementById('reason').value,
-                manager: document.getElementById('manager').value
+                manager: document.getElementById('manager').value,
+                approver: document.getElementById('approver').value // 결재자 추가
             };
 
             // 유효성 검사
@@ -170,6 +176,8 @@
             if (!data.person_type) { alert("인원구분을 선택해주세요."); return; }
             if (!data.dest1) { alert("행선지를 선택해주세요."); return; }
             if (!data.dest2) { alert("행선지상세를 입력해주세요."); return; }
+            if (!data.approver) { alert("결재자 성함을 입력해주세요."); return; } // 결재자 체크 추가
+            
             if (Object.values(data).some(val => !val)) { alert("모든 항목을 입력해주세요."); return; }
 
             tg.sendData(JSON.stringify(data));
