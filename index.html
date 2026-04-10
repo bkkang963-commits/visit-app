@@ -48,7 +48,6 @@
         }
         input:focus, select:focus { border-bottom: 1.5px solid var(--hw-orange); }
         
-        /* Select 화살표 디자인 커스텀 */
         select {
             background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23767676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>') no-repeat right center;
             background-size: 15px;
@@ -134,14 +133,14 @@
             <label>담당자 성함
                 <span class="sub-label">직함은 제외하고 성함만 입력해주세요.</span>
             </label>
-            <input type="text" id="manager" placeholder="예: 강병근" oninput="limitLength(this, 3)">
+            <input type="text" id="manager" placeholder="예: 강병근" oninput="matchApprover()">
         </div>
         
         <div class="form-group">
             <label>결재자 성함 (차상위)
-                <span class="sub-label">결재를 진행할 상급자 성함을 입력해주세요.</span>
+                <span class="sub-label">담당자 입력 시 자동으로 매칭됩니다.</span>
             </label>
-            <input type="text" id="approver" placeholder="예: 노정락" oninput="limitLength(this, 5)">
+            <input type="text" id="approver" placeholder="예: 노정락">
         </div>
 
         <button id="submit_btn">신청서 제출하기</button>
@@ -150,6 +149,40 @@
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+
+        // 담당자별 차상위 결재자 매칭 리스트
+        const approverList = {
+            "원동휘": "노정락", "김일동": "노정락", "김태수": "노정락", "송학선": "노정락",
+            "김경도": "노정락", "오상현": "노정락", "권규남": "노정락", "김창수": "노정락",
+            "임희철": "노정락", "최환석": "노정락", "박철": "노정락", "노순택": "노정락",
+            "전희철": "노정락", "김성현": "노정락", "정제민": "노정락", "조동민": "노정락",
+            "김철재": "노정락", "고준영": "노정락", "정주석": "노정락", "송민근": "노정락",
+            "송명국": "노정락", "이호정": "노정락", "김영훈": "노정락", "이기석": "노정락",
+            "최성식": "노정락", "우재민": "노정락", "염종한": "노정락", "고동완": "노정락",
+            "박준영": "노정락", "강병근": "노정락", "이곤": "노정락", "김대현": "노정락",
+            "박삼조": "노정락", "박해덕": "노정락", "장미수": "노정락", "박종록": "노정락",
+            "이상득": "노정락", "배진수": "노정락", "조정범": "노정락", "최경수": "노정락",
+            "김익기": "노정락", "김현식": "노정락", "피정범": "노정락", "이영교": "노정락",
+            "모성주": "노정락"
+        };
+
+        // 자동 매칭 함수
+        function matchApprover() {
+            const managerEl = document.getElementById('manager');
+            const approverEl = document.getElementById('approver');
+            const managerName = managerEl.value.trim();
+
+            // 3자 제한 (기존 기능 유지)
+            if (managerName.length > 5) {
+                managerEl.value = managerName.slice(0, 5);
+            }
+
+            if (approverList[managerName]) {
+                approverEl.value = approverList[managerName];
+            } else {
+                approverEl.value = ""; 
+            }
+        }
 
         function limitLength(el, maxLength) {
             if (el.value.length > maxLength) { el.value = el.value.slice(0, maxLength); }
@@ -169,7 +202,7 @@
                 dest2: document.getElementById('dest2').value,
                 reason: document.getElementById('reason').value,
                 manager: document.getElementById('manager').value,
-                approver: document.getElementById('approver').value // 결재자 추가
+                approver: document.getElementById('approver').value
             };
 
             // 유효성 검사
@@ -178,7 +211,7 @@
             if (!data.person_type) { alert("인원구분을 선택해주세요."); return; }
             if (!data.dest1) { alert("행선지를 선택해주세요."); return; }
             if (!data.dest2) { alert("행선지상세를 입력해주세요."); return; }
-            if (!data.approver) { alert("결재자 성함을 입력해주세요."); return; } // 결재자 체크 추가
+            if (!data.approver) { alert("결재자 성함을 입력해주세요."); return; }
             
             if (Object.values(data).some(val => !val)) { alert("모든 항목을 입력해주세요."); return; }
 
