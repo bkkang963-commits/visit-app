@@ -38,12 +38,15 @@
         }
         input:focus { border-bottom: 1.5px solid var(--hw-orange); }
 
+        /* 취소 사유 강조 스타일 */
         #cancel_reason_group { display: none; background: #FFF3E0; border-left: 4px solid var(--hw-orange); }
 
         button { 
             width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; 
             border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 20px; margin-bottom: 30px;
+            cursor: pointer;
         }
+        button:active { opacity: 0.8; }
     </style>
 </head>
 <body>
@@ -59,11 +62,11 @@
 
         <div class="form-group">
             <label>작업 시작일</label>
-            <input type="date" id="s_date">
+            <input type="date" id="s_date" max="2099-12-31">
         </div>
         <div class="form-group">
             <label>작업 종료일</label>
-            <input type="date" id="e_date">
+            <input type="date" id="e_date" max="2099-12-31">
         </div>
 
         <div class="form-group">
@@ -156,9 +159,9 @@
                 work_detail: document.getElementById('work_detail').value,
                 cause: document.getElementById('cause').value,
                 work_time: document.getElementById('work_time').value,
-                approver1: document.getElementById('approver1').value, // 엑셀 '결재자1'로 전송됨
-                approver2: document.getElementById('approver2').value, // 엑셀 '결재자2'로 전송됨
-                approver3: document.getElementById('approver3').value, // 추가된 데이터
+                approver1: document.getElementById('approver1').value,
+                approver2: document.getElementById('approver2').value,
+                approver3: document.getElementById('approver3').value,
                 ref: document.getElementById('ref').value,
                 receive: document.getElementById('receive').value
             };
