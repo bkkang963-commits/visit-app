@@ -71,7 +71,7 @@
 
         <div class="form-group">
             <label>업체명</label>
-            <input type="text" id="company" placeholder="출입하시는 회사를 기재해주세요 예: 한화임팩트">
+            <input type="text" id="company" placeholder="예: 한화임팩트">
         </div>
 
         <div class="form-group">
@@ -96,7 +96,7 @@
 
         <div class="form-group">
             <label>출입일</label>
-            <input type="date" id="s_date">
+            <input type="date" id="s_date" max="2099-12-31">
         </div>
 
         <div class="form-group">
@@ -150,7 +150,7 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // 담당자별 차상위 결재자 매칭 리스트
+        // 담당자별 차상위 결재자 매칭 데이터
         const approverList = {
             "원동휘": "노정락", "김일동": "노정락", "김태수": "노정락", "송학선": "노정락",
             "김경도": "노정락", "오상현": "노정락", "권규남": "노정락", "김창수": "노정락",
@@ -166,13 +166,11 @@
             "모성주": "노정락"
         };
 
-        // 자동 매칭 함수
         function matchApprover() {
             const managerEl = document.getElementById('manager');
             const approverEl = document.getElementById('approver');
             const managerName = managerEl.value.trim();
 
-            // 3자 제한 (기존 기능 유지)
             if (managerName.length > 5) {
                 managerEl.value = managerName.slice(0, 5);
             }
@@ -205,7 +203,6 @@
                 approver: document.getElementById('approver').value
             };
 
-            // 유효성 검사
             if (!data.company) { alert("업체명을 입력해주세요."); return; }
             if (data.birth.length !== 8) { alert("생년월일 8자리를 입력해주세요."); return; }
             if (!data.person_type) { alert("인원구분을 선택해주세요."); return; }
