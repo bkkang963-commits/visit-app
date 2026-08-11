@@ -89,7 +89,7 @@
             </select>
         </div>
 
-        <!-- 2. 설비 선택 (동적 드롭다운) -->
+        <!-- 2. 설비 선택 -->
         <div class="form-group">
             <label>설비 선택</label>
             <select id="equipment" disabled>
@@ -121,7 +121,7 @@
             <input type="text" id="requester" placeholder="예: 강병근">
         </div>
 
-        <!-- 5. 분석 사유 (선택) -->
+        <!-- 5. 분석 사유 -->
         <div class="form-group">
             <label>분석 사유 / 특이사항 (선택)</label>
             <input type="text" id="reason" placeholder="예: 최근 진동 수치 증가에 따른 정밀 분석 요청">
@@ -131,7 +131,9 @@
     </div>
 
     <script>
-        // 공장별 설비 데이터베이스
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
         const facilityData = {
             "1공장": [
                 "BA-609", "PA-101", "PA-300", "PA-301", "PA-302", "PA-303", 
@@ -165,7 +167,6 @@
             ]
         };
 
-        // DOM이 로드된 후 이벤트 리스너를 바인딩합니다 (가장 안정적인 방식)
         document.addEventListener('DOMContentLoaded', () => {
             const factorySelect = document.getElementById('factory');
             const equipSelect = document.getElementById('equipment');
@@ -213,12 +214,8 @@
                     reason: reason || "-"
                 };
 
-                // 텔레그램 미니앱 환경인 경우 sendData 실행, 일반 브라우저에서는 alert 표출
-                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
-                    window.Telegram.WebApp.sendData(JSON.stringify(data));
-                } else {
-                    alert("전송 데이터 확인:\n" + JSON.stringify(data, null, 2));
-                }
+                // 텔레그램 봇으로 데이터 직접 전송 (알림창 제거)
+                tg.sendData(JSON.stringify(data));
             });
         });
     </script>
