@@ -51,20 +51,16 @@
         select {
             background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23767676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>') no-repeat right center;
             background-size: 15px;
+            cursor: pointer;
         }
 
-        /* 숫자 입력과 단위 드롭다운을 한 줄로 배치 */
         .period-box {
             display: flex;
             gap: 12px;
             align-items: center;
         }
-        .period-box input {
-            flex: 1;
-        }
-        .period-box select {
-            flex: 1;
-        }
+        .period-box input { flex: 1; }
+        .period-box select { flex: 1; }
 
         button { 
             width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; 
@@ -85,7 +81,7 @@
         <!-- 1. 공장 선택 -->
         <div class="form-group">
             <label>공장 선택</label>
-            <select id="factory" onchange="updateEquipmentList()">
+            <select id="factory">
                 <option value="" disabled selected>공장을 선택하세요</option>
                 <option value="1공장">1공장</option>
                 <option value="2공장">2공장</option>
@@ -101,7 +97,7 @@
             </select>
         </div>
 
-        <!-- 3. 분석 기간 설정 (숫자 + 단위 조합) -->
+        <!-- 3. 분석 기간 설정 -->
         <div class="form-group">
             <label>분석 기간 설정
                 <span class="sub-label">조회할 기간의 숫자값과 단위를 선택해 주세요.</span>
@@ -135,10 +131,7 @@
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-
-        // 공장별 설비 데이터베이스 (1, 2, 3공장 실설비 목록 반영)
+        // 공장별 설비 데이터베이스
         const facilityData = {
             "1공장": [
                 "BA-609", "PA-101", "PA-300", "PA-301", "PA-302", "PA-303", 
@@ -172,54 +165,61 @@
             ]
         };
 
-        // 공장 선택 시 설비 드롭다운 목록 업데이트 함수
-        function updateEquipmentList() {
+        // DOM이 로드된 후 이벤트 리스너를 바인딩합니다 (가장 안정적인 방식)
+        document.addEventListener('DOMContentLoaded', () => {
             const factorySelect = document.getElementById('factory');
             const equipSelect = document.getElementById('equipment');
-            const selectedFactory = factorySelect.value;
 
-            equipSelect.innerHTML = '<option value="" disabled selected>설비를 선택하세요</option>';
+            factorySelect.addEventListener('change', () => {
+                const selectedFactory = factorySelect.value;
+                equipSelect.innerHTML = '<option value="" disabled selected>설비를 선택하세요</option>';
 
-            if (facilityData[selectedFactory]) {
-                equipSelect.disabled = false;
-                facilityData[selectedFactory].forEach(equip => {
-                    const option = document.createElement('option');
-                    option.value = equip;
-                    option.textContent = equip;
-                    equipSelect.appendChild(option);
-                });
-            } else {
-                equipSelect.disabled = true;
-            }
-        }
+                if (facilityData[selectedFactory]) {
+                    equipSelect.disabled = false;
+                    facilityData[selectedFactory].forEach(equip => {
+                        const option = document.createElement('option');
+                        option.value = equip;
+                        option.textContent = equip;
+                        equipSelect.appendChild(option);
+                    });
+                } else {
+                    equipSelect.disabled = true;
+                }
+            });
 
-        document.getElementById('submit_btn').addEventListener('click', () => {
-            const factory = document.getElementById('factory').value;
-            const equipment = document.getElementById('equipment').value;
-            const periodNum = document.getElementById('period_num').value.trim();
-            const periodUnit = document.getElementById('period_unit').value;
-            const requester = document.getElementById('requester').value.trim();
-            const reason = document.getElementById('reason').value.trim();
+            document.getElementById('submit_btn').addEventListener('click', () => {
+                const factory = factorySelect.value;
+                const equipment = equipSelect.value;
+                const periodNum = document.getElementById('period_num').value.trim();
+                const periodUnit = document.getElementById('period_unit').value;
+                const requester = document.getElementById('requester').value.trim();
+                const reason = document.getElementById('reason').value.trim();
 
-            if (!factory) { alert("공장을 선택해 주세요."); return; }
-            if (!equipment) { alert("설비를 선택해 주세요."); return; }
-            if (!periodNum || periodNum <= 0) { alert("올바른 기간 숫자를 입력해 주세요."); return; }
-            if (!requester) { alert("요청자 성함을 입력해 주세요."); return; }
+                if (!factory) { alert("공장을 선택해 주세요."); return; }
+                if (!equipment) { alert("설비를 선택해 주세요."); return; }
+                if (!periodNum || periodNum <= 0) { alert("올바른 기간 숫자를 입력해 주세요."); return; }
+                if (!requester) { alert("요청자 성함을 입력해 주세요."); return; }
 
-            const periodStr = `${periodNum} ${periodUnit}`;
+                const periodStr = `${periodNum} ${periodUnit}`;
 
-            const data = {
-                type: "AI진동분석",
-                factory: factory,
-                equipment: equipment,
-                period: periodStr,
-                period_num: periodNum,
-                period_unit: periodUnit,
-                requester: requester,
-                reason: reason || "-"
-            };
+                const data = {
+                    type: "AI진동분석",
+                    factory: factory,
+                    equipment: equipment,
+                    period: periodStr,
+                    period_num: periodNum,
+                    period_unit: periodUnit,
+                    requester: requester,
+                    reason: reason || "-"
+                };
 
-            tg.sendData(JSON.stringify(data));
+                // 텔레그램 미니앱 환경인 경우 sendData 실행, 일반 브라우저에서는 alert 표출
+                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+                    window.Telegram.WebApp.sendData(JSON.stringify(data));
+                } else {
+                    alert("전송 데이터 확인:\n" + JSON.stringify(data, null, 2));
+                }
+            });
         });
     </script>
 </body>
