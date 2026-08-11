@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>한화임팩트 AI 진동분석 요청</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --hw-orange: #FF6600;
+            --hw-dark: #222222;
+            --hw-gray: #767676;
+            --hw-bg: #F4F4F4;
+            --hw-white: #FFFFFF;
+        }
+
+        body { 
+            font-family: 'Pretendard', -apple-system, sans-serif; 
+            background-color: var(--hw-bg); 
+            padding: 20px; 
+            color: var(--hw-dark); 
+            line-height: 1.6; 
+            margin: 0;
+        }
+
+        .header { text-align: center; margin-bottom: 25px; padding-top: 10px; }
+        h3 { color: var(--hw-orange); font-size: 22px; margin: 0; font-weight: 800; letter-spacing: -0.5px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        
+        .form-group { 
+            background: var(--hw-white); 
+            padding: 18px; 
+            border-radius: 8px; 
+            margin-bottom: 15px; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05); 
+            border-left: 4px solid var(--hw-white); 
+            transition: all 0.3s;
+        }
+        .form-group:focus-within { border-left: 4px solid var(--hw-orange); box-shadow: 0 4px 12px rgba(255, 102, 0, 0.1); }
+        
+        label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--hw-dark); }
+        .sub-label { font-size: 11px; color: var(--hw-gray); font-weight: normal; display: block; margin-top: 4px; line-height: 1.4; }
+        
+        input, select { 
+            width: 100%; border: none; font-size: 16px; outline: none; padding: 10px 0; 
+            border-bottom: 1.5px solid #E0E0E0; background: transparent; color: var(--hw-dark); 
+            border-radius: 0; box-sizing: border-box;
+        }
+        input:focus, select:focus { border-bottom: 1.5px solid var(--hw-orange); }
+        
+        select {
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23767676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>') no-repeat right center;
+            background-size: 15px;
+        }
+
+        /* 숫자 입력과 단위 드롭다운을 한 줄로 배치 */
+        .period-box {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .period-box input {
+            flex: 1;
+        }
+        .period-box select {
+            flex: 1;
+        }
+
+        button { 
+            width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; 
+            border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 20px; 
+            margin-bottom: 30px; cursor: pointer; box-shadow: 0 4px 10px rgba(255, 102, 0, 0.2); transition: all 0.2s;
+        }
+        button:active { background: #E65C00; transform: scale(0.98); }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h3>한화임팩트 울산공장</h3>
+            <div style="font-size: 14px; color: #555; margin-top: 5px; font-weight: 600;">AI 진동분석 요청 시스템</div>
+        </div>
+
+        <!-- 1. 공장 선택 -->
+        <div class="form-group">
+            <label>공장 선택</label>
+            <select id="factory" onchange="updateEquipmentList()">
+                <option value="" disabled selected>공장을 선택하세요</option>
+                <option value="1공장">1공장</option>
+                <option value="2공장">2공장</option>
+                <option value="3공장">3공장</option>
+            </select>
+        </div>
+
+        <!-- 2. 설비 선택 (동적 드롭다운) -->
+        <div class="form-group">
+            <label>설비 선택</label>
+            <select id="equipment" disabled>
+                <option value="" disabled selected>공장을 먼저 선택해 주세요</option>
+            </select>
+        </div>
+
+        <!-- 3. 분석 기간 설정 (숫자 + 단위 조합) -->
+        <div class="form-group">
+            <label>분석 기간 설정
+                <span class="sub-label">조회할 기간의 숫자값과 단위를 선택해 주세요.</span>
+            </label>
+            <div class="period-box">
+                <input type="number" id="period_num" placeholder="예: 2" min="1">
+                <select id="period_unit">
+                    <option value="Hour">Hour</option>
+                    <option value="Week">Week</option>
+                    <option value="Month" selected>Month</option>
+                    <option value="Year">Year</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 4. 요청자 성함 -->
+        <div class="form-group">
+            <label>요청자 성함
+                <span class="sub-label">직함은 제외하고 성함만 입력해 주세요.</span>
+            </label>
+            <input type="text" id="requester" placeholder="예: 강병근">
+        </div>
+
+        <!-- 5. 분석 사유 (선택) -->
+        <div class="form-group">
+            <label>분석 사유 / 특이사항 (선택)</label>
+            <input type="text" id="reason" placeholder="예: 최근 진동 수치 증가에 따른 정밀 분석 요청">
+        </div>
+
+        <button id="submit_btn">AI 진동분석 요청하기</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // 공장별 설비 데이터베이스 (1, 2, 3공장 실설비 목록 반영)
+        const facilityData = {
+            "1공장": [
+                "BA-609", "PA-101", "PA-300", "PA-301", "PA-302", "PA-303", 
+                "PA-304", "PA-305", "PA-402", "PA-405", "PA-453", "PA-501", 
+                "PA-601", "PC-401A", "PC-401B", "PG-102A", "PG-102B", "PG-102C", 
+                "PG-102D", "PG-503", "PM-403", "PM-403B", "TA-202", "TA-204", 
+                "TA-301", "TA-401", "TA-402", "TA-403", "TA-404", "TA-501", 
+                "TA-602", "TA-604", "TA-606", "TC-502A", "TC-S02B", "TG-204A", 
+                "TG-204B", "TG-604", "TM-503A", "TM-503B", "TM-606A", "TM-606B", 
+                "UG-102A", "UG-102B", "UE-501A", "UE-501B", "UE-501C"
+            ],
+            "2공장": [
+                "BA-204", "BA-301A", "BA-301B", "BA-301C", "BA-401", "BA-402", 
+                "BA-403", "BA-501", "BG-204A", "BG-204B", "BG-204C", "CA-101", 
+                "CA-300", "CA-301", "CA-302", "CA-303", "CA-304", "CA-305", 
+                "CA-402A", "CA-402B", "CA-405", "CG-102A", "CG-102B", "CG-102C", 
+                "CG-102D", "CG-503A", "CG-503B", "CM-403A", "CM-403B", "BG-351A", 
+                "BG-351B", "BA-351", "TA-450", "TMM-451", "TMM-452", "AE-501A", 
+                "AE-501B", "AE-501C", "AE-501D", "AE-501E", "AE-501F", "AE-501G", 
+                "AE-501H"
+            ],
+            "3공장": [
+                "DA-204", "DA-301A", "DA-301B", "DA-401", "DA-402", "DA-403", 
+                "DA-501", "DA-602", "DC-502A", "DC-502B", "DG-204A", "DG-204B", 
+                "DG-204C", "DM-503A", "DM-503B", "EA-101", "EA-301", "EA-302", 
+                "EA-303", "EA-304", "EA-305", "EA-402", "EA-404", "EA-405", 
+                "EA-452", "EA-501", "EA-601", "EA-602", "EC-401", "EG-102A", 
+                "EG-102B", "EG-102C", "EG-102D", "EG-503", "EM-403A", "EM-403B", 
+                "WG-102A", "WG-102B", "WG-102C", "WE-501A", "WE-501B", "WE-501C", 
+                "WE-501D", "WE-501E"
+            ]
+        };
+
+        // 공장 선택 시 설비 드롭다운 목록 업데이트 함수
+        function updateEquipmentList() {
+            const factorySelect = document.getElementById('factory');
+            const equipSelect = document.getElementById('equipment');
+            const selectedFactory = factorySelect.value;
+
+            equipSelect.innerHTML = '<option value="" disabled selected>설비를 선택하세요</option>';
+
+            if (facilityData[selectedFactory]) {
+                equipSelect.disabled = false;
+                facilityData[selectedFactory].forEach(equip => {
+                    const option = document.createElement('option');
+                    option.value = equip;
+                    option.textContent = equip;
+                    equipSelect.appendChild(option);
+                });
+            } else {
+                equipSelect.disabled = true;
+            }
+        }
+
+        document.getElementById('submit_btn').addEventListener('click', () => {
+            const factory = document.getElementById('factory').value;
+            const equipment = document.getElementById('equipment').value;
+            const periodNum = document.getElementById('period_num').value.trim();
+            const periodUnit = document.getElementById('period_unit').value;
+            const requester = document.getElementById('requester').value.trim();
+            const reason = document.getElementById('reason').value.trim();
+
+            if (!factory) { alert("공장을 선택해 주세요."); return; }
+            if (!equipment) { alert("설비를 선택해 주세요."); return; }
+            if (!periodNum || periodNum <= 0) { alert("올바른 기간 숫자를 입력해 주세요."); return; }
+            if (!requester) { alert("요청자 성함을 입력해 주세요."); return; }
+
+            const periodStr = `${periodNum} ${periodUnit}`;
+
+            const data = {
+                type: "AI진동분석",
+                factory: factory,
+                equipment: equipment,
+                period: periodStr,
+                period_num: periodNum,
+                period_unit: periodUnit,
+                requester: requester,
+                reason: reason || "-"
+            };
+
+            tg.sendData(JSON.stringify(data));
+        });
+    </script>
+</body>
+</html>
