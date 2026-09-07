@@ -3,15 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>한화임팩트 울산공장 내방객 출입신청</title>
+    <title>한화임팩트 울산공장 내방객 출입신청 (다량신청)</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
             --hw-orange: #FF6600;
+            --hw-orange-light: #FFF5EE;
+            --hw-orange-border: #FFD2B2;
             --hw-dark: #222222;
             --hw-gray: #767676;
             --hw-bg: #F4F4F4;
             --hw-white: #FFFFFF;
+            --hw-danger: #D9534F;
         }
 
         body { 
@@ -45,6 +48,7 @@
             width: 100%; border: none; font-size: 16px; outline: none; padding: 10px 0; 
             border-bottom: 1.5px solid #E0E0E0; background: transparent; color: var(--hw-dark); 
             border-radius: 0;
+            box-sizing: border-box;
         }
         input:focus, select:focus { border-bottom: 1.5px solid var(--hw-orange); }
         
@@ -53,12 +57,92 @@
             background-size: 15px;
         }
 
-        button { 
+        /* 다중 방문객 전용 카드 디자인 */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 25px 0 10px 0;
+        }
+        .section-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--hw-orange);
+        }
+        .badge-count {
+            background-color: var(--hw-orange);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .visitor-card {
+            background: var(--hw-orange-light);
+            border: 1px solid var(--hw-orange-border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 14px;
+            position: relative;
+        }
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--hw-orange);
+        }
+        .btn-del {
+            background: none;
+            border: none;
+            color: var(--hw-danger);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            box-shadow: none;
+            width: auto;
+        }
+
+        .phone-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .phone-group span {
+            color: var(--hw-gray);
+            font-weight: bold;
+        }
+
+        .btn-add {
+            width: 100%;
+            padding: 14px;
+            background: var(--hw-white);
+            color: var(--hw-orange);
+            border: 1.5px dashed var(--hw-orange);
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: background 0.2s;
+            box-shadow: none;
+        }
+        .btn-add:active {
+            background: var(--hw-orange-light);
+            transform: scale(0.99);
+        }
+
+        #submit_btn { 
             width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; 
-            border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 20px; 
+            border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 15px; 
             margin-bottom: 30px; cursor: pointer; box-shadow: 0 4px 10px rgba(255, 102, 0, 0.2); transition: all 0.2s;
         }
-        button:active { background: #E65C00; transform: scale(0.98); }
+        #submit_btn:active { background: #E65C00; transform: scale(0.98); }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
@@ -66,32 +150,13 @@
     <div class="container">
         <div class="header">
             <h3>한화임팩트 울산공장</h3>
-            <div style="font-size: 14px; color: #555; margin-top: 5px; font-weight: 600;">내방객 출입 신청 시스템</div>
+            <div style="font-size: 14px; color: #555; margin-top: 5px; font-weight: 600;">내방객 출입 신청 시스템 (다량 신청)</div>
         </div>
 
+        <!-- 1. 공통 방문 정보 -->
         <div class="form-group">
             <label>업체명</label>
             <input type="text" id="company" placeholder="예: 한화임팩트">
-        </div>
-
-        <div class="form-group">
-            <label>방문객 성함</label>
-            <input type="text" id="name" placeholder="예: 김한화">
-        </div>
-
-        <div class="form-group">
-            <label>생년월일(8자리)</label>
-            <input type="number" id="birth" placeholder="예: 19900101" oninput="limitLength(this, 8)">
-        </div>
-
-        <div class="form-group">
-            <label>휴대전화 앞자리(4개)</label>
-            <input type="number" id="phone_f" placeholder="1234" oninput="limitLength(this, 4)">
-        </div>
-
-        <div class="form-group">
-            <label>휴대전화 뒷자리(4개)</label>
-            <input type="number" id="phone_b" placeholder="5678" oninput="limitLength(this, 4)">
         </div>
 
         <div class="form-group">
@@ -143,12 +208,52 @@
             <input type="text" id="approver" placeholder="예: 노정락">
         </div>
 
-        <button id="submit_btn">신청서 제출하기</button>
+        <!-- 2. 방문객 목록 동적 영역 -->
+        <div class="section-header">
+            <span class="section-title">내방객 인적사항</span>
+            <span class="badge-count" id="visitor_badge">총 1명</span>
+        </div>
+
+        <div id="visitor_container">
+            <!-- 1번 방문객 기본 카드 -->
+            <div class="visitor-card" data-idx="1">
+                <div class="card-top">
+                    <span>방문객 #1</span>
+                </div>
+                <div>
+                    <label>성함</label>
+                    <input type="text" class="v_name" placeholder="예: 김한화">
+                </div>
+                <div style="margin-top: 10px;">
+                    <label>생년월일 (8자리)</label>
+                    <input type="number" class="v_birth" placeholder="예: 19900101" oninput="limitLength(this, 8)">
+                </div>
+                <div style="margin-top: 10px;">
+                    <label>휴대전화 번호</label>
+                    <div class="phone-group">
+                        <span style="font-size: 15px;">010</span>
+                        <span>-</span>
+                        <input type="number" class="v_phone_f" placeholder="1234" oninput="limitLength(this, 4)">
+                        <span>-</span>
+                        <input type="number" class="v_phone_b" placeholder="5678" oninput="limitLength(this, 4)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="button" class="btn-add" onclick="addVisitorCard()">+ 방문객 추가하기</button>
+        <button id="submit_btn">신청서 일괄 제출하기</button>
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.expand();
+            tg.ready();
+        }
+
+        // 오늘 날짜 자동 기본값 세팅
+        document.getElementById('s_date').value = new Date().toISOString().substring(0, 10);
 
         // 담당자별 차상위 결재자 매칭 데이터
         const approverList = {
@@ -186,33 +291,127 @@
             if (el.value.length > maxLength) { el.value = el.value.slice(0, maxLength); }
         }
 
+        // 방문객 카드 동적 추가 함수
+        function addVisitorCard() {
+            const container = document.getElementById('visitor_container');
+            const currentCount = container.querySelectorAll('.visitor-card').length;
+            const nextIdx = currentCount + 1;
+
+            const card = document.createElement('div');
+            card.className = 'visitor-card';
+            card.setAttribute('data-idx', nextIdx);
+            card.innerHTML = `
+                <div class="card-top">
+                    <span>방문객 #${nextIdx}</span>
+                    <button type="button" class="btn-del" onclick="removeVisitorCard(this)">삭제</button>
+                </div>
+                <div>
+                    <label>성함</label>
+                    <input type="text" class="v_name" placeholder="예: 김한화">
+                </div>
+                <div style="margin-top: 10px;">
+                    <label>생년월일 (8자리)</label>
+                    <input type="number" class="v_birth" placeholder="예: 19900101" oninput="limitLength(this, 8)">
+                </div>
+                <div style="margin-top: 10px;">
+                    <label>휴대전화 번호</label>
+                    <div class="phone-group">
+                        <span style="font-size: 15px;">010</span>
+                        <span>-</span>
+                        <input type="number" class="v_phone_f" placeholder="1234" oninput="limitLength(this, 4)">
+                        <span>-</span>
+                        <input type="number" class="v_phone_b" placeholder="5678" oninput="limitLength(this, 4)">
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+            reorderCards();
+        }
+
+        // 방문객 카드 삭제 함수
+        function removeVisitorCard(btn) {
+            const card = btn.closest('.visitor-card');
+            card.remove();
+            reorderCards();
+        }
+
+        // 카드 번호 및 상단 뱃지 동기화
+        function reorderCards() {
+            const cards = document.querySelectorAll('.visitor-card');
+            cards.forEach((card, index) => {
+                const idx = index + 1;
+                card.setAttribute('data-idx', idx);
+                card.querySelector('.card-top span').innerText = `방문객 #${idx}`;
+            });
+            document.getElementById('visitor_badge').innerText = `총 ${cards.length}명`;
+        }
+
+        // 제출 처리
         document.getElementById('submit_btn').addEventListener('click', () => {
-            const data = {
-                type: "내방객",
-                company: document.getElementById('company').value,
-                name: document.getElementById('name').value,
-                birth: document.getElementById('birth').value,
-                phone_f: document.getElementById('phone_f').value,
-                phone_b: document.getElementById('phone_b').value,
-                s_date: document.getElementById('s_date').value,
-                person_type: document.getElementById('person_type').value,
-                dest1: document.getElementById('dest1').value,
-                dest2: document.getElementById('dest2').value,
-                reason: document.getElementById('reason').value,
-                manager: document.getElementById('manager').value,
-                approver: document.getElementById('approver').value
+            const company = document.getElementById('company').value.trim();
+            const s_date = document.getElementById('s_date').value;
+            const person_type = document.getElementById('person_type').value;
+            const dest1 = document.getElementById('dest1').value;
+            const dest2 = document.getElementById('dest2').value.trim();
+            const reason = document.getElementById('reason').value.trim();
+            const manager = document.getElementById('manager').value.trim();
+            const approver = document.getElementById('approver').value.trim();
+
+            if (!company) { alert("업체명을 입력해주세요."); return; }
+            if (!s_date) { alert("출입일을 선택해주세요."); return; }
+            if (!person_type) { alert("인원구분을 선택해주세요."); return; }
+            if (!dest1) { alert("행선지를 선택해주세요."); return; }
+            if (!dest2) { alert("행선지상세를 입력해주세요."); return; }
+            if (!reason) { alert("방문 사유를 입력해주세요."); return; }
+            if (!manager) { alert("담당자 성함을 입력해주세요."); return; }
+            if (!approver) { alert("결재자 성함을 입력해주세요."); return; }
+
+            const cards = document.querySelectorAll('.visitor-card');
+            if (cards.length === 0) {
+                alert("방문객을 최소 1명 이상 등록해야 합니다.");
+                return;
+            }
+
+            const visitors = [];
+            for (let i = 0; i < cards.length; i++) {
+                const card = cards[i];
+                const name = card.querySelector('.v_name').value.trim();
+                const birth = card.querySelector('.v_birth').value.trim();
+                const phone_f = card.querySelector('.v_phone_f').value.trim();
+                const phone_b = card.querySelector('.v_phone_b').value.trim();
+
+                if (!name) { alert(`방문객 #${i + 1}의 성함을 입력해주세요.`); return; }
+                if (birth.length !== 8) { alert(`방문객 #${i + 1}의 생년월일 8자리를 확인해주세요.`); return; }
+                if (phone_f.length !== 4 || phone_b.length !== 4) { alert(`방문객 #${i + 1}의 휴대전화 번호 8자리를 확인해주세요.`); return; }
+
+                visitors.push({
+                    name: name,
+                    birth: birth,
+                    phone_f: phone_f,
+                    phone_b: phone_b
+                });
+            }
+
+            // 봇으로 전송할 패키징 데이터
+            const payload = {
+                type: "다량내방객",
+                company: company,
+                s_date: s_date,
+                person_type: person_type,
+                dest1: dest1,
+                dest2: dest2,
+                reason: reason,
+                manager: manager,
+                approver: approver,
+                visitors: visitors
             };
 
-            if (!data.company) { alert("업체명을 입력해주세요."); return; }
-            if (data.birth.length !== 8) { alert("생년월일 8자리를 입력해주세요."); return; }
-            if (!data.person_type) { alert("인원구분을 선택해주세요."); return; }
-            if (!data.dest1) { alert("행선지를 선택해주세요."); return; }
-            if (!data.dest2) { alert("행선지상세를 입력해주세요."); return; }
-            if (!data.approver) { alert("결재자 성함을 입력해주세요."); return; }
-            
-            if (Object.values(data).some(val => !val)) { alert("모든 항목을 입력해주세요."); return; }
-
-            tg.sendData(JSON.stringify(data));
+            if (tg) {
+                tg.sendData(JSON.stringify(payload));
+            } else {
+                console.log("전송 데이터:", payload);
+                alert("텔레그램 환경이 아닙니다. 콘솔창에 데이터가 출력되었습니다.");
+            }
         });
     </script>
 </body>
