@@ -57,7 +57,6 @@
             background-size: 15px;
         }
 
-        /* 다중 방문객 전용 카드 디자인 */
         .section-header {
             display: flex;
             justify-content: space-between;
@@ -155,7 +154,9 @@
 
         <!-- 1. 공통 방문 정보 -->
         <div class="form-group">
-            <label>업체명</label>
+            <label>대표 업체명
+                <span class="sub-label">공통 소속 회사명을 적어주세요. 개별 회사가 다른 경우 아래 개별 란에 작성 가능합니다.</span>
+            </label>
             <input type="text" id="company" placeholder="예: 한화임팩트">
         </div>
 
@@ -225,6 +226,12 @@
                     <input type="text" class="v_name" placeholder="예: 김한화">
                 </div>
                 <div style="margin-top: 10px;">
+                    <label>소속 회사명 (선택)
+                        <span class="sub-label" style="font-size: 10px;">미입력 시 상단 '대표 업체명'이 자동 적용됩니다.</span>
+                    </label>
+                    <input type="text" class="v_company" placeholder="미입력 시 대표 업체명 자동 적용">
+                </div>
+                <div style="margin-top: 10px;">
                     <label>생년월일 (8자리)</label>
                     <input type="number" class="v_birth" placeholder="예: 19900101" oninput="limitLength(this, 8)">
                 </div>
@@ -252,10 +259,8 @@
             tg.ready();
         }
 
-        // 오늘 날짜 자동 기본값 세팅
         document.getElementById('s_date').value = new Date().toISOString().substring(0, 10);
 
-        // 담당자별 차상위 결재자 매칭 데이터
         const approverList = {
             "원동휘": "노정락", "김일동": "노정락", "김태수": "노정락", "송학선": "노정락",
             "김경도": "노정락", "오상현": "노정락", "권규남": "노정락", "김창수": "노정락",
@@ -291,7 +296,6 @@
             if (el.value.length > maxLength) { el.value = el.value.slice(0, maxLength); }
         }
 
-        // 방문객 카드 동적 추가 함수
         function addVisitorCard() {
             const container = document.getElementById('visitor_container');
             const currentCount = container.querySelectorAll('.visitor-card').length;
@@ -308,6 +312,12 @@
                 <div>
                     <label>성함</label>
                     <input type="text" class="v_name" placeholder="예: 김한화">
+                </div>
+                <div style="margin-top: 10px;">
+                    <label>소속 회사명 (선택)
+                        <span class="sub-label" style="font-size: 10px;">미입력 시 상단 '대표 업체명'이 자동 적용됩니다.</span>
+                    </label>
+                    <input type="text" class="v_company" placeholder="미입력 시 대표 업체명 자동 적용">
                 </div>
                 <div style="margin-top: 10px;">
                     <label>생년월일 (8자리)</label>
@@ -328,14 +338,12 @@
             reorderCards();
         }
 
-        // 방문객 카드 삭제 함수
         function removeVisitorCard(btn) {
             const card = btn.closest('.visitor-card');
             card.remove();
             reorderCards();
         }
 
-        // 카드 번호 및 상단 뱃지 동기화
         function reorderCards() {
             const cards = document.querySelectorAll('.visitor-card');
             cards.forEach((card, index) => {
@@ -346,9 +354,8 @@
             document.getElementById('visitor_badge').innerText = `총 ${cards.length}명`;
         }
 
-        // 제출 처리
         document.getElementById('submit_btn').addEventListener('click', () => {
-            const company = document.getElementById('company').value.trim();
+            const mainCompany = document.getElementById('company').value.trim();
             const s_date = document.getElementById('s_date').value;
             const person_type = document.getElementById('person_type').value;
             const dest1 = document.getElementById('dest1').value;
@@ -357,7 +364,7 @@
             const manager = document.getElementById('manager').value.trim();
             const approver = document.getElementById('approver').value.trim();
 
-            if (!company) { alert("업체명을 입력해주세요."); return; }
+            if (!mainCompany) { alert("대표 업체명을 입력해주세요."); return; }
             if (!s_date) { alert("출입일을 선택해주세요."); return; }
             if (!person_type) { alert("인원구분을 선택해주세요."); return; }
             if (!dest1) { alert("행선지를 선택해주세요."); return; }
@@ -376,6 +383,7 @@
             for (let i = 0; i < cards.length; i++) {
                 const card = cards[i];
                 const name = card.querySelector('.v_name').value.trim();
+                const individualCompany = card.querySelector('.v_company').value.trim();
                 const birth = card.querySelector('.v_birth').value.trim();
                 const phone_f = card.querySelector('.v_phone_f').value.trim();
                 const phone_b = card.querySelector('.v_phone_b').value.trim();
@@ -384,18 +392,21 @@
                 if (birth.length !== 8) { alert(`방문객 #${i + 1}의 생년월일 8자리를 확인해주세요.`); return; }
                 if (phone_f.length !== 4 || phone_b.length !== 4) { alert(`방문객 #${i + 1}의 휴대전화 번호 8자리를 확인해주세요.`); return; }
 
+                // 개별 회사명이 있으면 개별 회사명 우선, 없으면 대표 업체명 사용
+                const resolvedCompany = individualCompany || mainCompany;
+
                 visitors.push({
                     name: name,
+                    company: resolvedCompany,
                     birth: birth,
                     phone_f: phone_f,
                     phone_b: phone_b
                 });
             }
 
-            // 봇으로 전송할 패키징 데이터
             const payload = {
                 type: "다량내방객",
-                company: company,
+                main_company: mainCompany,
                 s_date: s_date,
                 person_type: person_type,
                 dest1: dest1,
