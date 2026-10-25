@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>한화임팩트 작업허가서 신청</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --primary: #f37021;
+      --primary-hover: #d95d13;
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --text: #2d3748;
+      --text-muted: #718096;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 16px; font-size: 14px; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h2 { color: var(--primary); font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .header p { color: var(--text-muted); font-size: 12px; }
+    .card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .card-title { font-size: 15px; font-weight: 700; color: #1a202c; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #4a5568; }
+    input[type="text"], input[type="date"], select { width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 13px; background-color: #fff; color: var(--text); outline: none; }
+    input:focus, select:focus { border-color: var(--primary); ring: 1px solid var(--primary); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .btn-add { background: #edf2f7; color: #4a5568; border: 1px dashed #cbd5e0; border-radius: 8px; width: 100%; height: 38px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 16px; }
+    .btn-add:hover { background: #e2e8f0; }
+    .btn-delete { background: #fed7d7; color: #e53e3e; border: none; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .btn-submit { background-color: var(--primary); color: white; width: 100%; height: 46px; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; }
+    .btn-submit:hover { background-color: var(--primary-hover); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>📋 작업허가서 신청</h2>
+    <p>한화임팩트 정비작업 안전허가 신청서</p>
+  </div>
+
+  <form id="permitForm">
+    <!-- 기본 인적사항 -->
+    <div class="card">
+      <div class="card-title">인적사항 정보</div>
+      <div class="grid-3">
+        <div class="form-group">
+          <label>신청인</label>
+          <input type="text" id="applicant" required placeholder="신청인명">
+        </div>
+        <div class="form-group">
+          <label>작업책임자</label>
+          <input type="text" id="supervisor" required placeholder="책임자명">
+        </div>
+        <div class="form-group">
+          <label>작업자(업체)</label>
+          <input type="text" id="worker" required placeholder="작업자/업체명">
+        </div>
+      </div>
+    </div>
+
+    <!-- 작업 목록 영역 -->
+    <div id="taskList"></div>
+
+    <button type="button" class="btn-add" onclick="addTask()">➕ 작업 항목 추가하기 (다건 신청)</button>
+    <button type="submit" class="btn-submit">신청하기</button>
+  </form>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    let taskIndex = 0;
+
+    const chemicalList = [
+      'PX', '초산', '가성소다', '수소', '황산', 'IBO', 'PTA', 
+      '탄산나트륨', '차아염소산나트륨', '염화제이철', 'CMB'
+    ];
+
+    const etcOptions = [
+      "없음", "CBA400", "CMA", "HMB-1100", "NUTROMAX N", "PAC", 
+      "Tri-ACT 1800", "UREA", "VALUGARD-1200A", "경유", "글리세린", 
+      "메탄올", "벤젠", "산화알루미늄", "액상소석회", "염산", 
+      "요소+인산(엔피졸)", "인산", "질소", "프로판", "활성탄소", "히팅오일"
+    ];
+
+    function createTaskHtml(idx) {
+      let chemHtml = '';
+      chemicalList.forEach(chem => {
+        chemHtml += `
+          <div class="form-group">
+            <label style="font-weight:500;">${chem}</label>
+            <select class="chem-select" data-chem="${chem}">
+              <option value="X" selected>X</option>
+              <option value="O">O</option>
+            </select>
+          </div>
+        `;
+      });
+
+      let etcHtml = etcOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('');
+
+      return `
+        <div class="card task-card" id="taskCard_${idx}">
+          <div class="card-title">
+            <span>작업 #${idx + 1}</span>
+            ${idx > 0 ? `<button type="button" class="btn-delete" onclick="removeTask(${idx})">삭제</button>` : ''}
+          </div>
+          
+          <div class="grid-2">
+            <div class="form-group">
+              <label>정비오더</label>
+              <input type="text" class="task-order" required placeholder="예: 4179234">
+            </div>
+            <div class="form-group">
+              <label>작업일자</label>
+              <input type="date" class="task-date" required>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>작업유형</label>
+              <select class="task-type">
+                <option value="일반" selected>일반</option>
+                <option value="화기">화기</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>LOTO</label>
+              <select class="task-loto">
+                <option value="비대상" selected>비대상</option>
+                <option value="대상">대상</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>작업장소</label>
+              <input type="text" class="task-place" required placeholder="예: 글리세린 룸">
+            </div>
+            <div class="form-group">
+              <label>작업내용</label>
+              <input type="text" class="task-desc" required placeholder="예: 케이블 포설">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>위험 / 특수 작업 구분</label>
+            <div class="grid-2">
+              <div class="form-group">
+                <label style="font-weight:400;">특정위험작업</label>
+                <select class="task-danger">
+                  <option value="X" selected>X</option>
+                  <option value="O">O</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:400;">밀폐공간출입</label>
+                <select class="task-confined">
+                  <option value="X" selected>X</option>
+                  <option value="O">O</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:400;">고소작업</label>
+                <select class="task-height">
+                  <option value="일반" selected>일반</option>
+                  <option value="특정">특정</option>
+                  <option value="해당없음">해당없음</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:400;">중량물</label>
+                <select class="task-heavy">
+                  <option value="해당없음" selected>해당없음</option>
+                  <option value="일반">일반</option>
+                  <option value="특수인양">특수인양</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:400;">방사선</label>
+                <select class="task-radiation">
+                  <option value="해당없음" selected>해당없음</option>
+                  <option value="일반">일반</option>
+                  <option value="특정">특정</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:400;">굴착작업</label>
+                <select class="task-excavation">
+                  <option value="X" selected>X</option>
+                  <option value="O">O</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:400;">전기작업</label>
+                <select class="task-electric">
+                  <option value="해당없음" selected>해당없음</option>
+                  <option value="저압">저압</option>
+                  <option value="고압">고압</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:400;">고압수세척</label>
+                <select class="task-highpressure">
+                  <option value="X" selected>X</option>
+                  <option value="O">O</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-weight:400;">화학물질하역</label>
+                <select class="task-unloading">
+                  <option value="X" selected>X</option>
+                  <option value="O">O</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>취급 화학물질</label>
+            <div class="grid-4">
+              ${chemHtml}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>기타 화학물질</label>
+            <select class="task-etc">
+              ${etcHtml}
+            </select>
+          </div>
+        </div>
+      `;
+    }
+
+    function addTask() {
+      const taskList = document.getElementById('taskList');
+      const div = document.createElement('div');
+      div.innerHTML = createTaskHtml(taskIndex);
+      taskList.appendChild(div.firstElementChild);
+      
+      const today = new Date().toISOString().split('T')[0];
+      const newCard = document.getElementById(`taskCard_${taskIndex}`);
+      newCard.querySelector('.task-date').value = today;
+      taskIndex++;
+    }
+
+    function removeTask(idx) {
+      const card = document.getElementById(`taskCard_${idx}`);
+      if (card) card.remove();
+    }
+
+    addTask();
+
+    document.getElementById('permitForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const applicant = document.getElementById('applicant').value.trim();
+      const supervisor = document.getElementById('supervisor').value.trim();
+      const worker = document.getElementById('worker').value.trim();
+
+      const taskCards = document.querySelectorAll('.task-card');
+      const tasks = [];
+
+      taskCards.forEach((card, index) => {
+        const order = card.querySelector('.task-order').value.trim();
+        const date = card.querySelector('.task-date').value;
+        const type = card.querySelector('.task-type').value;
+        const loto = card.querySelector('.task-loto').value;
+        const place = card.querySelector('.task-place').value.trim();
+        const desc = card.querySelector('.task-desc').value.trim();
+        
+        const danger = card.querySelector('.task-danger').value;
+        const confined = card.querySelector('.task-confined').value;
+        const height = card.querySelector('.task-height').value;
+        const heavy = card.querySelector('.task-heavy').value;
+        const radiation = card.querySelector('.task-radiation').value;
+        const excavation = card.querySelector('.task-excavation').value;
+        const electric = card.querySelector('.task-electric').value;
+        const highpressure = card.querySelector('.task-highpressure').value;
+        const unloading = card.querySelector('.task-unloading').value;
+
+        const chemicals = {};
+        card.querySelectorAll('.chem-select').forEach(sel => {
+          chemicals[sel.dataset.chem] = sel.value;
+        });
+
+        const etc = card.querySelector('.task-etc').value;
+
+        tasks.push({
+          no: index + 1,
+          order: order,
+          type: type,
+          loto: loto,
+          date: date,
+          place: place,
+          desc: desc,
+          danger: danger,
+          confined: confined,
+          height: height,
+          heavy: heavy,
+          radiation: radiation,
+          excavation: excavation,
+          electric: electric,
+          highpressure: highpressure,
+          unloading: unloading,
+          chemicals: chemicals,
+          etc: etc
+        });
+      });
+
+      const payload = {
+        type: '허가서출력',
+        applicant: applicant,
+        supervisor: supervisor,
+        worker: worker,
+        tasks: tasks
+      };
+
+      tg.sendData(JSON.stringify(payload));
+    });
+  </script>
+</body>
+</html>
