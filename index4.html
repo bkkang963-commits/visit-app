@@ -6,21 +6,34 @@
     <title>한화임팩트 정비오더 신청</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --hw-orange: #FF6600; --hw-dark: #222222; --hw-bg: #F4F4F4; --hw-white: #FFFFFF; }
+        :root { --hw-orange: #FF6600; --hw-dark: #222222; --hw-bg: #F4F4F4; --hw-white: #FFFFFF; --ok: #1E8E3E; --ng: #D93025; }
         body { font-family: 'Pretendard', sans-serif; background-color: var(--hw-bg); padding: 20px; color: var(--hw-dark); margin: 0; }
         .container { max-width: 500px; margin: 0 auto; }
         .header { text-align: center; margin-bottom: 20px; }
         h3 { color: var(--hw-orange); margin: 0; font-weight: 800; }
-        
+
         .form-group { background: var(--hw-white); padding: 15px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 10px; color: #333; }
-        
+
         .date-item { margin-bottom: 12px; }
         .date-label { font-size: 12px; color: var(--hw-orange); font-weight: 600; margin-bottom: 4px; display: block; }
-        
+
         input, select { width: 100%; border: none; font-size: 16px; outline: none; padding: 8px 0; border-bottom: 1.5px solid #E0E0E0; background: transparent; box-sizing: border-box; }
         input:focus, select:focus { border-bottom: 1.5px solid var(--hw-orange); }
-        
+
+        /* 설비 매칭 상태 표시 */
+        input.eq-ok { border-bottom-color: var(--ok); }
+        input.eq-ng { border-bottom-color: var(--ng); }
+        .eq-status { font-size: 13px; margin-top: 6px; min-height: 16px; line-height: 1.4; color: #767676; }
+        .eq-status.ok { color: var(--ok); }
+        .eq-status.ng { color: var(--ng); font-weight: 700; }
+        .eq-suggest { list-style: none; margin: 6px 0 0; padding: 0; max-height: 200px; overflow-y: auto; border: 1px solid #EEE; border-radius: 6px; display: none; }
+        .eq-suggest li { padding: 10px 12px; font-size: 14px; border-bottom: 1px solid #F2F2F2; cursor: pointer; }
+        .eq-suggest li:last-child { border-bottom: none; }
+        .eq-suggest li:active { background: #FFF1E6; }
+        .eq-suggest .code { font-weight: 700; }
+        .eq-suggest .name { color: #767676; margin-left: 6px; font-size: 12px; }
+
         .sub-info { font-size: 11px; color: #767676; margin-top: 8px; line-height: 1.4; }
         button { width: 100%; padding: 18px; background: var(--hw-orange); color: white; border: none; border-radius: 4px; font-size: 18px; font-weight: bold; margin-top: 20px; margin-bottom: 40px; cursor: pointer; }
     </style>
@@ -70,7 +83,9 @@
 
         <div class="form-group">
             <label>대표설비</label>
-            <input type="text" id="equipment" placeholder="예: UAT-001">
+            <input type="text" id="equipment" placeholder="예: UAT-001" autocomplete="off" autocapitalize="characters">
+            <div id="eq_status" class="eq-status">설비 목록을 불러오는 중…</div>
+            <ul id="eq_suggest" class="eq-suggest"></ul>
         </div>
 
         <div class="form-group">
@@ -114,10 +129,10 @@
             <input type="text" id="app1" placeholder="작성자 이름을 기재하세요 (필수)" style="margin-bottom:5px;">
             <input type="text" id="app2" placeholder="결재자 2 (선택)" style="margin-bottom:5px;">
             <input type="text" id="app3" placeholder="결재자 3 (선택)" style="margin-bottom:15px;">
-            
+
             <input type="text" id="ref1" placeholder="참조 1 (선택)" style="margin-bottom:5px;">
             <input type="text" id="ref2" placeholder="참조 2 (선택)" style="margin-bottom:15px;">
-            
+
             <input type="text" id="recv1" placeholder="수신 1 (선택)" style="margin-bottom:5px;">
             <input type="text" id="recv2" placeholder="수신 2 (선택)">
             <div class="sub-info">※ 결재자 1은 본인 성함을 입력하세요.</div>
@@ -130,6 +145,116 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        // =====================================================================
+        // 설비 마스터: 같은 폴더의 equipment.txt 를 읽어옵니다.
+        // 형식: 설비코드[탭]설비코드*설명  (엑셀에서 복사한 그대로)
+        // =====================================================================
+        const EQUIPMENT_FILE = 'equipment.txt';
+
+        // 비교용 정규화: 공백 제거 + 대문자
+        const norm = s => String(s || "").toUpperCase().replace(/\s+/g, "");
+
+        let EQ_MAP = new Map();
+        let EQ_LIST = [];
+        let eqLoaded = false;
+        let matchedEquipment = null;
+
+        const eqInput = document.getElementById('equipment');
+        const eqStatus = document.getElementById('eq_status');
+        const eqSuggest = document.getElementById('eq_suggest');
+
+        function parseEquipment(text) {
+            text.split(/\r?\n/).forEach(line => {
+                if (!line.trim()) return;
+                let code, rest = '';
+                if (line.includes('\t')) {
+                    const idx = line.indexOf('\t');
+                    code = line.slice(0, idx).trim();
+                    rest = line.slice(idx + 1).trim();
+                } else {
+                    const m = line.trim().match(/^(\S+)\s*(.*)$/);
+                    code = m[1]; rest = m[2];
+                }
+                if (!code) return;
+                // "UAT-001*[1]UB-101 ..." → "[1]UB-101 ..."
+                const star = rest.indexOf('*');
+                const name = star > -1 ? rest.slice(star + 1).trim() : rest;
+                const key = norm(code);
+                if (!EQ_MAP.has(key)) {
+                    const e = { code, name };
+                    EQ_MAP.set(key, e);
+                    EQ_LIST.push(e);
+                }
+            });
+        }
+
+        async function loadEquipment() {
+            try {
+                const res = await fetch(EQUIPMENT_FILE, { cache: 'no-store' });
+                if (!res.ok) throw new Error(res.status);
+                parseEquipment(await res.text());
+                if (!EQ_LIST.length) throw new Error('empty');
+                eqLoaded = true;
+                eqStatus.className = 'eq-status';
+                eqStatus.textContent = `설비 ${EQ_LIST.length.toLocaleString()}개 등록됨`;
+                if (eqInput.value.trim()) checkEquipment();
+            } catch (err) {
+                eqLoaded = false;
+                eqStatus.className = 'eq-status ng';
+                eqStatus.textContent = '설비 목록을 불러오지 못했습니다. 관리자에게 문의하세요.';
+            }
+        }
+
+        function checkEquipment() {
+            if (!eqLoaded) return;
+            const key = norm(eqInput.value);
+            matchedEquipment = EQ_MAP.get(key) || null;
+
+            eqInput.classList.remove('eq-ok', 'eq-ng');
+            eqStatus.className = 'eq-status';
+
+            if (!key) {
+                eqStatus.textContent = '';
+                renderSuggestions([]);
+                return;
+            }
+
+            if (matchedEquipment) {
+                eqInput.classList.add('eq-ok');
+                eqStatus.classList.add('ok');
+                eqStatus.textContent = '✔ ' + (matchedEquipment.name || '등록된 설비입니다');
+                renderSuggestions([]);
+            } else {
+                eqInput.classList.add('eq-ng');
+                eqStatus.classList.add('ng');
+                eqStatus.textContent = '설비태그가 없습니다.';
+                const candidates = EQ_LIST.filter(e =>
+                    norm(e.code).includes(key) || norm(e.name).includes(key)
+                ).slice(0, 20);
+                renderSuggestions(candidates);
+            }
+        }
+
+        function renderSuggestions(list) {
+            eqSuggest.innerHTML = '';
+            if (!list.length) { eqSuggest.style.display = 'none'; return; }
+            list.forEach(e => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span class="code"></span><span class="name"></span>`;
+                li.querySelector('.code').textContent = e.code;
+                li.querySelector('.name').textContent = e.name || '';
+                li.addEventListener('click', () => {
+                    eqInput.value = e.code;
+                    checkEquipment();
+                });
+                eqSuggest.appendChild(li);
+            });
+            eqSuggest.style.display = 'block';
+        }
+
+        eqInput.addEventListener('input', checkEquipment);
+        loadEquipment();
+
         function toggleSubOrder() {
             const main = document.getElementById('order_main').value;
             const subGroup = document.getElementById('sub_order_group');
@@ -137,9 +262,25 @@
         }
 
         document.getElementById('submit_btn').addEventListener('click', () => {
+            // ── 대표설비 검사: 매칭 안 되면 제출 불가 ──
+            if (!eqLoaded) {
+                alert("설비 목록을 불러오지 못해 신청할 수 없습니다.\n잠시 후 다시 시도하세요.");
+                return;
+            }
+            checkEquipment();
+            if (!matchedEquipment) {
+                eqInput.classList.add('eq-ng');
+                eqStatus.className = 'eq-status ng';
+                eqStatus.textContent = '설비태그가 없습니다.';
+                alert("설비태그가 없습니다.\n대표설비를 확인하세요.");
+                eqInput.focus();
+                eqInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
             const main = document.getElementById('order_main').value;
             const sub = document.getElementById('order_sub').value;
-            
+
             let finalOrderType = "";
             if (main === "예방보전") finalOrderType = main + "/" + sub;
             else if (["정기보수", "소정수", "촉매세정"].includes(main)) {
@@ -160,7 +301,7 @@
                 order_desc: document.getElementById('order_desc').value,
                 order_type: finalOrderType,
                 activity_type: document.getElementById('activity_type').value,
-                equipment: document.getElementById('equipment').value,
+                equipment: matchedEquipment.code,
                 plan_date1: document.getElementById('s_date').value.replace(/-/g, ""),
                 plan_date2: document.getElementById('e_date').value.replace(/-/g, ""),
                 part: document.getElementById('part').value,
