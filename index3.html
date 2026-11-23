@@ -62,10 +62,6 @@
             margin-bottom: 8px;
         }
         .ai-title { font-size: 14px; font-weight: 800; color: #C2410C; }
-        .btn-key {
-            width: auto; margin: 0; padding: 5px 10px; font-size: 11px; font-weight: 700;
-            background: #fff; color: #475569; border: 1px solid #CBD5E1; border-radius: 6px;
-        }
         .ai-card textarea {
             width: 100%; min-height: 92px; border: 1px solid #FED7AA; border-radius: 8px;
             padding: 10px; font-size: 13.5px; line-height: 1.45; box-sizing: border-box;
@@ -95,7 +91,6 @@
         <div class="ai-card">
             <div class="ai-head">
                 <span class="ai-title">🤖 AI 정비이력 자동 다듬기</span>
-                <button type="button" class="btn-key" onclick="configApiKey()">☁️ 공용 AI (키 불필요)</button>
             </div>
             <textarea id="ai_input" placeholder="편하게 말하듯 적어주세요!&#10;예: 어제 작업시작해서 오늘 끝났고, transmitter가 고장인것 같아서 점검했는데 물이 들어간거 같다. 새걸로 교체했다. (2시간)"></textarea>
             <div class="ai-btn-row">
@@ -225,28 +220,6 @@
 
         const PROXY_URL = 'https://maint-ai-proxy.maint-ai-proxy.workers.dev';
 
-        function configApiKey() {
-            const cur = localStorage.getItem('hw_gemini_api_key') || '';
-            const input = prompt(
-                '기본적으로 공용 Cloudflare AI 프록시가 자동 연결되어 있어 키 입력이 필요 없습니다!\n(선택) 본인 Gemini API 키로 직접 호출하려면 입력, 공용 AI로 쓰려면 비워두고 확인을 누르세요.',
-                cur
-            );
-            if (input !== null) {
-                const trimmed = input.trim();
-                if (trimmed) {
-                    localStorage.setItem('hw_gemini_api_key', trimmed);
-                    const st = document.getElementById('ai_status');
-                    st.style.color = '#15803D';
-                    st.textContent = '🔑 개인 AI 키가 저장되었습니다. (비우면 다시 공용 AI 사용)';
-                } else {
-                    localStorage.removeItem('hw_gemini_api_key');
-                    const st = document.getElementById('ai_status');
-                    st.style.color = '#15803D';
-                    st.textContent = '☁️ 공용 AI 모드로 설정되었습니다. (키 불필요)';
-                }
-            }
-        }
-
         async function runAiMaintenance() {
             const raw = document.getElementById('ai_input').value.trim();
             const st = document.getElementById('ai_status');
@@ -256,8 +229,6 @@
                 st.textContent = '먼저 작업 내용을 자유롭게 입력해 주세요!';
                 return;
             }
-
-            const personalKey = (localStorage.getItem('hw_gemini_api_key') || '').trim();
 
             const todayStr = _localDateOffset(0);
             const yesterdayStr = _localDateOffset(-1);
@@ -299,58 +270,20 @@ ${raw}
             let parsed = null;
             let lastErr = '';
 
-            // 1) 기본: Cloudflare 공용 AI 프록시 호출 (동료 기기 키 입력 불필요!)
-            if (!personalKey) {
-                try {
-                    const resp = await fetch(PROXY_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt: promptText })
-                    });
-                    const resJson = await resp.json().catch(() => ({}));
-                    if (resp.ok && resJson && resJson.ok && resJson.data) {
-                        parsed = resJson.data;
-                    } else {
-                        lastErr = resJson?.error || `HTTP ${resp.status}`;
-                    }
-                } catch (err) {
-                    lastErr = String(err);
+            try {
+                const resp = await fetch(PROXY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: promptText })
+                });
+                const resJson = await resp.json().catch(() => ({}));
+                if (resp.ok && resJson && resJson.ok && resJson.data) {
+                    parsed = resJson.data;
+                } else {
+                    lastErr = resJson?.error || `HTTP ${resp.status}`;
                 }
-            }
-
-            // 2) 선택: 개인 API 키가 설정되어 있으면 직접 호출
-            if (!parsed && personalKey) {
-                const models = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
-                for (const model of models) {
-                    try {
-                        const resp = await fetch(
-                            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(personalKey)}`,
-                            {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    contents: [{ parts: [{ text: promptText }] }],
-                                    generationConfig: { temperature: 0.2 }
-                                })
-                            }
-                        );
-                        if (!resp.ok) {
-                            lastErr = `HTTP ${resp.status}`;
-                            continue;
-                        }
-                        const json = await resp.json();
-                        const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                        const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
-                        const m = cleaned.match(/\{[\s\S]*\}/);
-                        if (m) {
-                            parsed = JSON.parse(m[0]);
-                            break;
-                        }
-                        lastErr = 'JSON 파싱 실패';
-                    } catch (err) {
-                        lastErr = String(err);
-                    }
-                }
+            } catch (err) {
+                lastErr = String(err);
             }
 
             btn.disabled = false;
