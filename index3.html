@@ -47,12 +47,62 @@
             cursor: pointer;
         }
         button:active { opacity: 0.8; }
+
+        .ai-card {
+            background: #FFF7ED;
+            border: 1.5px solid #FDBA74;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 16px;
+        }
+        .ai-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .ai-title { font-size: 14px; font-weight: 800; color: #C2410C; }
+        .btn-key {
+            width: auto; margin: 0; padding: 5px 10px; font-size: 11px; font-weight: 700;
+            background: #fff; color: #475569; border: 1px solid #CBD5E1; border-radius: 6px;
+        }
+        .ai-card textarea {
+            width: 100%; min-height: 92px; border: 1px solid #FED7AA; border-radius: 8px;
+            padding: 10px; font-size: 13.5px; line-height: 1.45; box-sizing: border-box;
+            outline: none; resize: vertical; background: #fff; color: var(--hw-dark);
+        }
+        .ai-card textarea:focus { border-color: var(--hw-orange); }
+        .ai-btn-row { display: flex; gap: 8px; margin-top: 8px; }
+        .btn-ai-run {
+            flex: 3; margin: 0; padding: 12px; font-size: 14px; font-weight: 700;
+            background: #0F2537; color: #fff; border-radius: 8px;
+        }
+        .btn-ai-run:disabled { opacity: 0.6; cursor: wait; }
+        .btn-ai-clr {
+            flex: 1; margin: 0; padding: 12px; font-size: 13px; font-weight: 600;
+            background: #E2E8F0; color: #334155; border-radius: 8px;
+        }
+        .ai-status { font-size: 12px; font-weight: 700; margin-top: 6px; min-height: 16px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h3>정비 이력 작성 (RPA용)</h3>
+        </div>
+
+        <!-- 0. AI 정비이력 자동 작성 카드 -->
+        <div class="ai-card">
+            <div class="ai-head">
+                <span class="ai-title">🤖 AI 정비이력 자동 다듬기</span>
+                <button type="button" class="btn-key" onclick="configApiKey()">🔑 AI 키 설정</button>
+            </div>
+            <textarea id="ai_input" placeholder="편하게 말하듯 적어주세요!&#10;예: 어제 작업시작해서 오늘 끝났고, transmitter가 고장인것 같아서 점검했는데 물이 들어간거 같다. 새걸로 교체했다. (2시간)"></textarea>
+            <div class="ai-btn-row">
+                <button type="button" class="btn-ai-run" id="btn_ai_run" onclick="runAiMaintenance()">✨ AI로 다듬어 채우기</button>
+                <button type="button" class="btn-ai-clr" onclick="clearAiInput()">지우기</button>
+            </div>
+            <div id="ai_status" class="ai-status"></div>
         </div>
 
         <div class="form-group">
@@ -144,6 +194,160 @@
             const status = document.getElementById('work_status').value;
             const cancelGroup = document.getElementById('cancel_reason_group');
             cancelGroup.style.display = (status === '오더취소') ? 'block' : 'none';
+        }
+
+        // 작성자/결재선 자동 기억 (localStorage)
+        const SAVE_IDS = ['approver1', 'approver2', 'approver3', 'ref', 'receive'];
+        window.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            if (!document.getElementById('s_date').value) document.getElementById('s_date').value = today;
+            if (!document.getElementById('e_date').value) document.getElementById('e_date').value = today;
+            SAVE_IDS.forEach(id => {
+                const v = localStorage.getItem('hw_maint_' + id);
+                if (v) document.getElementById(id).value = v;
+                document.getElementById(id).addEventListener('change', (e) => {
+                    localStorage.setItem('hw_maint_' + id, e.target.value.trim());
+                });
+            });
+        });
+
+        function clearAiInput() {
+            document.getElementById('ai_input').value = '';
+            document.getElementById('ai_status').textContent = '';
+        }
+
+        function configApiKey() {
+            const cur = localStorage.getItem('hw_gemini_api_key') || '';
+            const input = prompt(
+                '무료 Gemini API 키를 입력해 주세요.\n(이 기기 브라우저에만 저장되며 GitHub에는 절대 공개되지 않습니다.)',
+                cur
+            );
+            if (input !== null) {
+                const trimmed = input.trim();
+                if (trimmed) {
+                    localStorage.setItem('hw_gemini_api_key', trimmed);
+                    const st = document.getElementById('ai_status');
+                    st.style.color = '#15803D';
+                    st.textContent = '🔑 AI 키가 이 기기에 안전하게 저장되었습니다!';
+                } else {
+                    localStorage.removeItem('hw_gemini_api_key');
+                    const st = document.getElementById('ai_status');
+                    st.style.color = '#64748B';
+                    st.textContent = '저장된 AI 키를 삭제했습니다.';
+                }
+            }
+        }
+
+        async function runAiMaintenance() {
+            const raw = document.getElementById('ai_input').value.trim();
+            const st = document.getElementById('ai_status');
+            const btn = document.getElementById('btn_ai_run');
+            if (!raw) {
+                st.style.color = '#DC2626';
+                st.textContent = '먼저 작업 내용을 자유롭게 입력해 주세요!';
+                return;
+            }
+
+            let apiKey = localStorage.getItem('hw_gemini_api_key') || '';
+            if (!apiKey) {
+                configApiKey();
+                apiKey = localStorage.getItem('hw_gemini_api_key') || '';
+                if (!apiKey) return;
+            }
+
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+            const promptText = `당신은 석유화학 플랜트(한화임팩트 울산공장) 설비 정비이력 작성 전문가입니다.
+오늘 날짜는 ${todayStr} 입니다.
+사용자가 구어체로 적은 아래 작업 내용을 사내 SAP/정비이력 양식에 어울리는 간결하고 전문적인 정비 용어로 다듬어 순수 JSON만 반환하세요 (코드블록 \`\`\` 및 설명 금지).
+
+[규칙]
+1. 어제/오늘/그저께 등 상대 날짜는 오늘(${todayStr}) 기준으로 정확한 YYYY-MM-DD로 계산하세요.
+2. 현상(phenom): 설비에서 관측된 이상 증상 (1줄, 예: "Transmitter 출력 이상 및 고장 의심")
+3. 문제점(problem): 점검 결과 확인된 구체적 결함 (1줄, 예: "Transmitter 내부 수분 유입 확인")
+4. 작업사항(work_detail): 실제 수행한 조치 및 결과 (1줄, 예: "기존 Transmitter 탈거 후 신규품 교체 및 정상 동작 확인")
+5. 원인(cause): 결함의 추정 원인 (1줄, 예: "외부 수분 침투에 의한 내부 소자 손상으로 추정")
+6. work_status: 반드시 "정상작업", "오더취소", "재작업" 중 1개 선택.
+7. order_id: 7자리 오더번호가 언급된 경우만 숫자 7자리 입력, 없으면 "".
+8. work_time: 작업시간이 언급된 경우 숫자만(예: "2"), 없으면 "".
+
+[사용자 입력]
+${raw}
+
+[출력 JSON]
+{"order_id":"","s_date":"YYYY-MM-DD","e_date":"YYYY-MM-DD","work_status":"정상작업","cancel_reason":"","phenom":"","problem":"","work_detail":"","cause":"","work_time":""}`;
+
+            btn.disabled = true;
+            btn.textContent = '🤖 AI가 다듬는 중...';
+            st.style.color = '#0369A1';
+            st.textContent = 'Gemini AI가 정비 용어로 정리하고 있습니다...';
+
+            const models = ['gemini-flash-lite-latest', 'gemini-2.0-flash'];
+            let parsed = null;
+            let lastErr = '';
+
+            for (const model of models) {
+                try {
+                    const resp = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: promptText }] }],
+                                generationConfig: { temperature: 0.2 }
+                            })
+                        }
+                    );
+                    if (!resp.ok) {
+                        lastErr = `HTTP ${resp.status}`;
+                        continue;
+                    }
+                    const json = await resp.json();
+                    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+                    const m = cleaned.match(/\{[\s\S]*\}/);
+                    if (m) {
+                        parsed = JSON.parse(m[0]);
+                        break;
+                    }
+                    lastErr = 'JSON 파싱 실패';
+                } catch (err) {
+                    lastErr = String(err);
+                }
+            }
+
+            btn.disabled = false;
+            btn.textContent = '✨ AI로 다듬어 채우기';
+
+            if (!parsed) {
+                st.style.color = '#DC2626';
+                st.textContent = `❌ AI 호출 실패 (${lastErr}) — [🔑 AI 키 설정]을 확인해 주세요.`;
+                return;
+            }
+
+            if (parsed.order_id && /^\d{7}$/.test(String(parsed.order_id))) {
+                document.getElementById('order_id').value = String(parsed.order_id);
+            }
+            if (parsed.s_date) document.getElementById('s_date').value = parsed.s_date;
+            if (parsed.e_date) document.getElementById('e_date').value = parsed.e_date;
+            if (parsed.work_status && ['정상작업', '오더취소', '재작업'].includes(parsed.work_status)) {
+                document.getElementById('work_status').value = parsed.work_status;
+                toggleCancelReason();
+            }
+            if (parsed.cancel_reason) document.getElementById('cancel_reason').value = parsed.cancel_reason;
+            if (parsed.phenom) document.getElementById('phenom').value = parsed.phenom;
+            if (parsed.problem) document.getElementById('problem').value = parsed.problem;
+            if (parsed.work_detail) document.getElementById('work_detail').value = parsed.work_detail;
+            if (parsed.cause) document.getElementById('cause').value = parsed.cause;
+            if (parsed.work_time !== undefined && String(parsed.work_time).trim() !== '') {
+                document.getElementById('work_time').value = String(parsed.work_time).replace(/[^\d.]/g, '');
+            }
+
+            st.style.color = '#15803D';
+            st.textContent = '✅ AI가 정비이력을 다듬어 자동 입력했습니다! 아래 내용 확인 후 전송하세요.';
         }
 
         document.getElementById('submit_btn').addEventListener('click', () => {
