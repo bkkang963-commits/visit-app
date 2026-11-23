@@ -144,6 +144,38 @@
         }
         #submit_btn:active { background: #E65C00; transform: scale(0.98); }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .paste-box {
+            background: var(--hw-orange-light);
+            border: 1.5px dashed var(--hw-orange);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 18px;
+        }
+        .paste-box textarea {
+            width: 100%;
+            min-height: 105px;
+            border: 1px solid var(--hw-orange-border);
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 13px;
+            line-height: 1.45;
+            background: #fff;
+            color: var(--hw-dark);
+            box-sizing: border-box;
+            outline: none;
+            resize: vertical;
+        }
+        .paste-box textarea:focus { border-color: var(--hw-orange); }
+        .paste-btns { display: flex; gap: 8px; margin-top: 8px; }
+        .btn-autofill {
+            flex: 2; padding: 11px; background: #1e293b; color: #fff; border: none;
+            border-radius: 6px; font-size: 14px; font-weight: 700; cursor: pointer;
+        }
+        .btn-clear-p {
+            flex: 1; padding: 11px; background: #e2e8f0; color: #334155; border: none;
+            border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .parse-msg { font-size: 12px; font-weight: 700; margin-top: 6px; min-height: 16px; }
     </style>
 </head>
 <body>
@@ -151,6 +183,17 @@
         <div class="header">
             <h3>한화임팩트 울산공장</h3>
             <div style="font-size: 14px; color: #555; margin-top: 5px; font-weight: 600;">내방객 출입 신청 시스템</div>
+        </div>
+
+        <!-- 0. 카톡/문자 복붙 자동 채우기 -->
+        <div class="paste-box">
+            <label style="color: var(--hw-orange); font-size: 14px; margin-bottom: 6px;">📋 단톡방/문자 복붙 → 자동 채우기</label>
+            <textarea id="raw_paste" placeholder="업체명, 방문일, 방문사유, 방문객 명단(이름/생년월일/연락처)을 그대로 복사해 붙여넣고 [자동 채우기]를 누르세요!"></textarea>
+            <div class="paste-btns">
+                <button type="button" class="btn-autofill" onclick="autoFillVisitor()">✨ 자동 채우기</button>
+                <button type="button" class="btn-clear-p" onclick="clearRawPaste()">지우기</button>
+            </div>
+            <div id="parse_msg" class="parse-msg"></div>
         </div>
 
         <!-- 1. 공통 방문 정보 -->
@@ -347,6 +390,185 @@
             const extraCount = document.querySelectorAll('.visitor-card').length;
             const totalCount = 1 + extraCount; // 본인 1명 + 추가 인원
             document.getElementById('visitor_badge').innerText = `총 ${totalCount}명`;
+        }
+
+        // 담당자 성함 기억
+        const savedMgr = localStorage.getItem('hw_visit_manager');
+        if (savedMgr) {
+            document.getElementById('manager').value = savedMgr;
+            matchApprover();
+        }
+        document.getElementById('manager').addEventListener('change', (e) => {
+            if (e.target.value.trim()) localStorage.setItem('hw_visit_manager', e.target.value.trim());
+        });
+
+        // =========================================================================
+        // 단톡방/문자 복붙 -> 내방객 출입신청 스마트 자동 파서
+        // =========================================================================
+        function clearRawPaste() {
+            document.getElementById('raw_paste').value = '';
+            document.getElementById('parse_msg').textContent = '';
+        }
+
+        function _normDate(str) {
+            const yr = new Date().getFullYear();
+            let m = str.match(/(20\d{2})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+            if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+            m = str.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+            if (m) return `${yr}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+            m = str.match(/(?:^|[^\d])(\d{1,2})[.\-\/](\d{1,2})(?:[^\d]|$)/);
+            if (m && parseInt(m[1],10) >= 1 && parseInt(m[1],10) <= 12 && parseInt(m[2],10) >= 1 && parseInt(m[2],10) <= 31) {
+                return `${yr}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+            }
+            return '';
+        }
+
+        function _normBirth(raw) {
+            let m = raw.match(/(19\d{2}|20\d{2})[.\-\/\s]?(\d{2})[.\-\/\s]?(\d{2})/);
+            if (m) return `${m[1]}${m[2]}${m[3]}`;
+            m = raw.match(/(?:^|[^\d])(\d{2})[.\-\/]?(\d{2})[.\-\/]?(\d{2})(?:[^\d]|$)/);
+            if (m) {
+                const yy = parseInt(m[1], 10), mm = parseInt(m[2], 10), dd = parseInt(m[3], 10);
+                if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+                    const prefix = yy >= 26 ? '19' : '20';
+                    return `${prefix}${m[1]}${m[2]}${m[3]}`;
+                }
+            }
+            return '';
+        }
+
+        function _normPhone(raw) {
+            const m = raw.match(/010[.\-\s]?(\d{4})[.\-\s]?(\d{4})/);
+            return m ? { f: m[1], b: m[2], raw: m[0] } : null;
+        }
+
+        function parseVisitorText(raw) {
+            const cleaned = raw.replace(/(?:오전|오후)\s*\d{1,2}:\d{2}/g, '').replace(/\r\n/g, '\n');
+            const lines = cleaned.split('\n').map(l => l.trim()).filter(Boolean);
+            const res = { company: '', s_date: '', person_type: '', dest1: '', dest2: '', reason: '', manager: '', people: [] };
+            let curPerson = null;
+
+            function flushPerson() {
+                if (curPerson && (curPerson.name || curPerson.birth || curPerson.phone_f)) {
+                    res.people.push(curPerson);
+                }
+                curPerson = null;
+            }
+
+            for (const line of lines) {
+                // 1) 한 줄에 전화번호(010...)가 들어있으면 인원 라인!
+                const ph = _normPhone(line);
+                if (ph && !/^(?:연락처|전화|휴대폰|핸드폰|HP)\s*[:：]/i.test(line)) {
+                    flushPerson();
+                    let rest = line.replace(ph.raw, ' ');
+                    const birth = _normBirth(rest);
+                    if (birth) rest = rest.replace(/(19\d{2}|20\d{2})[.\-\/\s]?\d{2}[.\-\/\s]?\d{2}|\d{2}[.\-\/]?\d{2}[.\-\/]?\d{2}/, ' ');
+                    rest = rest.replace(/^[\d.)\-\s•*]+/, '').replace(/[\/|,()]/g, ' ').replace(/\s+/g, ' ').trim();
+                    const toks = rest.split(' ').filter(Boolean);
+                    let pName = '', pComp = '';
+                    for (const tk of toks) {
+                        if (!pName && /^[가-힣]{2,4}$/.test(tk) && !['대표','부장','차장','과장','대리','주임','사원','팀장','소장','프로','기사'].includes(tk)) {
+                            pName = tk;
+                        } else if (!['대표','부장','차장','과장','대리','주임','사원','팀장','소장','프로','기사','님'].includes(tk)) {
+                            pComp = pComp ? `${pComp} ${tk}` : tk;
+                        }
+                    }
+                    res.people.push({ name: pName, company: pComp, birth, phone_f: ph.f, phone_b: ph.b });
+                    continue;
+                }
+
+                // 2) 라벨형 메타데이터 추출
+                let m;
+                if ((m = line.match(/^(?:업체명?|회사명?|소속)\s*[:：\/]\s*(.+)$/))) { res.company = m[1].trim(); continue; }
+                if ((m = line.match(/^(?:출입일|방문일|방문일자|일시|날짜)\s*[:：\/]\s*(.+)$/))) { const d = _normDate(m[1]); if (d) res.s_date = d; continue; }
+                if ((m = line.match(/^(?:방문\s*사유|사유|목적|방문\s*목적|내용)\s*[:：\/]\s*(.+)$/))) { res.reason = m[1].trim(); continue; }
+                if ((m = line.match(/^(?:행선지|장소|위치|공장)\s*[:：\/]\s*(.+)$/))) { res.dest2 = m[1].trim(); continue; }
+                if ((m = line.match(/^(?:담당자|접견자|신청자)\s*[:：\/]\s*([가-힣]{2,4})/))) { res.manager = m[1].trim(); continue; }
+
+                // 3) 라벨형 1인 인적사항 (성함 / 생년월일 / 연락처)
+                if ((m = line.match(/^(?:성함|이름|방문객|성명)\s*[:：\/]\s*([가-힣]{2,4})/))) {
+                    if (curPerson && curPerson.name) flushPerson();
+                    curPerson = curPerson || { name: '', company: '', birth: '', phone_f: '', phone_b: '' };
+                    curPerson.name = m[1].trim();
+                    continue;
+                }
+                if ((m = line.match(/^(?:생년월일|생일|주민번호앞자리)\s*[:：\/]\s*(.+)$/))) {
+                    curPerson = curPerson || { name: '', company: '', birth: '', phone_f: '', phone_b: '' };
+                    curPerson.birth = _normBirth(m[1]);
+                    continue;
+                }
+                if (ph && /^(?:연락처|전화|휴대폰|핸드폰|HP)\s*[:：\/]/i.test(line)) {
+                    curPerson = curPerson || { name: '', company: '', birth: '', phone_f: '', phone_b: '' };
+                    curPerson.phone_f = ph.f;
+                    curPerson.phone_b = ph.b;
+                    continue;
+                }
+            }
+            flushPerson();
+
+            // 인원구분·행선지 자동 추론
+            if (/현장|점검|확인/.test(raw)) res.person_type = '현장점검';
+            else if (/진단|조사|측정|진동/.test(raw)) res.person_type = '진단/조사';
+            else if (/면접/.test(raw)) res.person_type = '면접';
+            else res.person_type = '업무협의';
+
+            if (/공정|PTA|1공장|2공장|3공장|현장|블로워|펌프/.test(res.dest2 + ' ' + res.reason)) res.dest1 = '공정지역';
+            else if (/본관|사무동|회의실|관리동|비공정/.test(res.dest2 + ' ' + res.reason)) res.dest1 = '비공정지역';
+
+            // 본문에 결재자 리스트의 담당자 이름이 있으면 자동 매칭
+            if (!res.manager) {
+                for (const mgr of Object.keys(approverList)) {
+                    if (raw.includes(mgr)) { res.manager = mgr; break; }
+                }
+            }
+            return res;
+        }
+
+        function autoFillVisitor() {
+            const raw = document.getElementById('raw_paste').value.trim();
+            const msgEl = document.getElementById('parse_msg');
+            if (!raw) {
+                msgEl.style.color = '#dc2626';
+                msgEl.textContent = '먼저 붙여넣을 내용을 입력해 주세요!';
+                return;
+            }
+            const parsed = parseVisitorText(raw);
+            if (parsed.company) document.getElementById('company').value = parsed.company;
+            if (parsed.s_date) document.getElementById('s_date').value = parsed.s_date;
+            if (parsed.person_type) document.getElementById('person_type').value = parsed.person_type;
+            if (parsed.dest1) document.getElementById('dest1').value = parsed.dest1;
+            if (parsed.dest2) document.getElementById('dest2').value = parsed.dest2;
+            if (parsed.reason) document.getElementById('reason').value = parsed.reason;
+            if (parsed.manager) {
+                document.getElementById('manager').value = parsed.manager;
+                matchApprover();
+            }
+
+            if (parsed.people.length > 0) {
+                document.getElementById('additional_visitors').innerHTML = '';
+                const p0 = parsed.people[0];
+                document.getElementById('name').value = p0.name || '';
+                document.getElementById('birth').value = p0.birth || '';
+                document.getElementById('phone_f').value = p0.phone_f || '';
+                document.getElementById('phone_b').value = p0.phone_b || '';
+                if (!parsed.company && p0.company) document.getElementById('company').value = p0.company;
+
+                for (let i = 1; i < parsed.people.length; i++) {
+                    addVisitorCard();
+                    const cards = document.querySelectorAll('.visitor-card');
+                    const card = cards[cards.length - 1];
+                    const p = parsed.people[i];
+                    card.querySelector('.v_name').value = p.name || '';
+                    card.querySelector('.v_company').value = p.company || '';
+                    card.querySelector('.v_birth').value = p.birth || '';
+                    card.querySelector('.v_phone_f').value = p.phone_f || '';
+                    card.querySelector('.v_phone_b').value = p.phone_b || '';
+                }
+                updateVisitorBadge();
+            }
+
+            msgEl.style.color = '#15803d';
+            msgEl.textContent = `✅ 자동 채우기 완료! (인원 ${parsed.people.length}명 감지) — 아래 내용 확인 후 제출하세요.`;
         }
 
         // 신청서 제출
