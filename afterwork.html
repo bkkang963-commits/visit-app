@@ -240,14 +240,17 @@
     <p>한화임팩트 공무팀 일과 후 작업계획 접수</p>
   </div>
 
-  <!-- 0. 단톡방 복붙 자동 채우기 카드 -->
+  <!-- 0. 단톡방 복붙 AI / 스마트 자동 채우기 카드 -->
   <div class="paste-card">
-    <div class="card-title">📋 단톡방 글 복붙 → 자동 채우기</div>
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>🤖 단톡방 글 복붙 → AI 자동 채우기</span>
+      <button type="button" onclick="configApiKey()" style="padding:3px 8px;font-size:11px;font-weight:700;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">🔑 AI 키</button>
+    </div>
     <div class="form-group">
       <textarea id="rawPasteInput" style="min-height:110px;" placeholder="단톡방에서 동료들이 올린 일과후/야간작업 글을 여러 개 그대로 복사해서 붙여넣고 [자동 채우기]를 누르세요!"></textarea>
     </div>
     <div class="paste-actions">
-      <button type="button" class="btn-parse" onclick="parseAndFillTasks()">✨ 자동 채우기</button>
+      <button type="button" class="btn-parse" id="btnParse" onclick="parseAndFillTasks()">✨ AI로 자동 채우기</button>
       <button type="button" class="btn-clear-paste" onclick="clearRawPaste()">지우기</button>
     </div>
     <div id="parseStatus" class="parse-status"></div>
@@ -609,15 +612,105 @@
       return tasks;
     }
 
-    function parseAndFillTasks() {
+    function configApiKey() {
+      const cur = localStorage.getItem('hw_gemini_api_key') || '';
+      const val = prompt('무료 Gemini API 키를 입력해 주세요.\n(정비이력·일과후작업 페이지가 같은 키를 자동 공유합니다.)', cur);
+      if (val !== null) {
+        const t = val.trim();
+        const st = document.getElementById('parseStatus');
+        if (t) {
+          localStorage.setItem('hw_gemini_api_key', t);
+          st.style.color = '#15803d';
+          st.textContent = '🔑 AI 키가 저장되었습니다!';
+        } else {
+          localStorage.removeItem('hw_gemini_api_key');
+          st.style.color = '#64748b';
+          st.textContent = 'AI 키를 삭제했습니다 (내장 파서로 동작).';
+        }
+      }
+    }
+
+    async function _parseAfterworkWithAI(raw, apiKey) {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const todayStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const promptText = `당신은 한화임팩트 울산공장 공무팀 일과후작업 정리 비서입니다.
+오늘 날짜는 ${todayStr} 입니다.
+아래 단톡방에서 복사한 여러 사람의 일과후/야간작업 글을 분석해 순수 JSON만 출력하세요 (코드블록 \`\`\` 및 설명 금지).
+
+[규칙]
+1. 하나의 메시지에 작업이 2개 이상이면 반드시 tasks 배열에 각각 분리하세요 (같은 관리감독자 유지).
+2. part(공종)는 반드시 ["기계","배관","계기","전기","계기(분석)"] 중 1개 선택.
+3. supervisor(관리감독자): 직급(주임/프로/과장 등) 빼고 이름만.
+4. workers(작업자): 이름 끝의 총인원 숫자("4명" 등)는 제거하고 이름만 기재 (단, "제이콘 외 3명" 형태는 유지). 작업자 미기재 시 감독자 이름 기재.
+5. time(작업시간): "~ 20시", "(20시)" 등은 "~20:00" 형식으로 통일. 언급 없으면 "~20:00".
+
+[입력 원문]
+${raw}
+
+[출력 JSON]
+{"tasks":[{"part":"기계","supervisor":"","workers":"","content":"","time":"~20:00"}]}`;
+
+      for (const model of ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']) {
+        try {
+          const resp = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.1 } })
+            }
+          );
+          if (!resp.ok) continue;
+          const data = await resp.json();
+          const txt = (data?.candidates?.[0]?.content?.parts?.[0]?.text || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+          const m = txt.match(/\{[\s\S]*\}/);
+          if (m) {
+            const obj = JSON.parse(m[0]);
+            if (Array.isArray(obj.tasks) && obj.tasks.length > 0) {
+              return obj.tasks.map(t => ({
+                part: ['기계','배관','계기','전기','계기(분석)'].includes(t.part) ? t.part : detectPart(t.content || '', '기계'),
+                supervisor: String(t.supervisor || '').trim(),
+                workers: String(t.workers || '').trim(),
+                content: String(t.content || '').trim(),
+                time: String(t.time || '~20:00').trim(),
+                count: calculateWorkerCount(String(t.workers || ''))
+              }));
+            }
+          }
+        } catch (e) {}
+      }
+      return null;
+    }
+
+    async function parseAndFillTasks() {
       const raw = document.getElementById('rawPasteInput').value.trim();
       const statusEl = document.getElementById('parseStatus');
+      const btn = document.getElementById('btnParse');
       if (!raw) {
         statusEl.style.color = '#dc2626';
         statusEl.textContent = '먼저 단톡방 글을 붙여넣어 주세요!';
         return;
       }
-      const parsed = parseGroupChatText(raw);
+
+      const apiKey = localStorage.getItem('hw_gemini_api_key') || '';
+      let parsed = null;
+      let usedAi = false;
+
+      if (apiKey) {
+        btn.disabled = true;
+        btn.textContent = '🤖 AI 분석 중...';
+        statusEl.style.color = '#0369a1';
+        statusEl.textContent = 'Gemini AI가 일과후작업 항목을 정리하고 있습니다...';
+        parsed = await _parseAfterworkWithAI(raw, apiKey);
+        btn.disabled = false;
+        btn.textContent = '✨ AI로 자동 채우기';
+        if (parsed) usedAi = true;
+      }
+      if (!parsed) {
+        parsed = parseGroupChatText(raw);
+      }
+
       if (!parsed.length) {
         statusEl.style.color = '#dc2626';
         statusEl.textContent = '작업 항목을 찾지 못했습니다. 형식을 확인해 주세요.';
@@ -637,7 +730,7 @@
       parsed.forEach(t => addTask(t));
       updateTotalCount();
       statusEl.style.color = '#15803d';
-      statusEl.textContent = `✅ ${parsed.length}건 자동 채우기 완료! 아래 내용 확인 후 접수하세요.`;
+      statusEl.textContent = `✅ ${usedAi ? 'AI' : '자동'} 채우기 완료! (${parsed.length}건) — 아래 내용 확인 후 접수하세요.`;
     }
 
     // 제출 처리
