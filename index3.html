@@ -196,10 +196,17 @@
             cancelGroup.style.display = (status === '오더취소') ? 'block' : 'none';
         }
 
+        function _localDateOffset(days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        }
+
         // 작성자/결재선 자동 기억 (localStorage)
         const SAVE_IDS = ['approver1', 'approver2', 'approver3', 'ref', 'receive'];
         window.addEventListener('DOMContentLoaded', () => {
-            const today = new Date().toISOString().split('T')[0];
+            const today = _localDateOffset(0);
             if (!document.getElementById('s_date').value) document.getElementById('s_date').value = today;
             if (!document.getElementById('e_date').value) document.getElementById('e_date').value = today;
             SAVE_IDS.forEach(id => {
@@ -255,16 +262,24 @@
                 if (!apiKey) return;
             }
 
-            const now = new Date();
-            const pad = n => String(n).padStart(2, '0');
-            const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+            const todayStr = _localDateOffset(0);
+            const yesterdayStr = _localDateOffset(-1);
+            const twoDaysAgoStr = _localDateOffset(-2);
+            const threeDaysAgoStr = _localDateOffset(-3);
+            const tomorrowStr = _localDateOffset(1);
 
             const promptText = `당신은 석유화학 플랜트(한화임팩트 울산공장) 설비 정비이력 작성 전문가입니다.
-오늘 날짜는 ${todayStr} 입니다.
+[날짜 기준표 — 반드시 아래 표의 날짜를 그대로 사용하세요]
+- 오늘 = ${todayStr}
+- 어제 = ${yesterdayStr}
+- 그저께(그제/2일전) = ${twoDaysAgoStr}
+- 3일전 = ${threeDaysAgoStr}
+- 내일 = ${tomorrowStr}
+
 사용자가 구어체로 적은 아래 작업 내용을 사내 SAP/정비이력 양식에 어울리는 간결하고 전문적인 정비 용어로 다듬어 순수 JSON만 반환하세요 (코드블록 \`\`\` 및 설명 금지).
 
 [규칙]
-1. 어제/오늘/그저께 등 상대 날짜는 오늘(${todayStr}) 기준으로 정확한 YYYY-MM-DD로 계산하세요.
+1. s_date(작업시작일), e_date(작업종료일)는 위 날짜 기준표를 정확히 적용하세요. (예: "어제 시작해서 오늘 끝났다" -> s_date="${yesterdayStr}", e_date="${todayStr}")
 2. 현상(phenom): 설비에서 관측된 이상 증상 (1줄, 예: "Transmitter 출력 이상 및 고장 의심")
 3. 문제점(problem): 점검 결과 확인된 구체적 결함 (1줄, 예: "Transmitter 내부 수분 유입 확인")
 4. 작업사항(work_detail): 실제 수행한 조치 및 결과 (1줄, 예: "기존 Transmitter 탈거 후 신규품 교체 및 정상 동작 확인")
@@ -277,14 +292,14 @@
 ${raw}
 
 [출력 JSON]
-{"order_id":"","s_date":"YYYY-MM-DD","e_date":"YYYY-MM-DD","work_status":"정상작업","cancel_reason":"","phenom":"","problem":"","work_detail":"","cause":"","work_time":""}`;
+{"order_id":"","s_date":"${todayStr}","e_date":"${todayStr}","work_status":"정상작업","cancel_reason":"","phenom":"","problem":"","work_detail":"","cause":"","work_time":""}`;
 
             btn.disabled = true;
             btn.textContent = '🤖 AI가 다듬는 중...';
             st.style.color = '#0369A1';
             st.textContent = 'Gemini AI가 정비 용어로 정리하고 있습니다...';
 
-            const models = ['gemini-flash-lite-latest', 'gemini-2.0-flash'];
+            const models = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite'];
             let parsed = null;
             let lastErr = '';
 
@@ -331,8 +346,16 @@ ${raw}
             if (parsed.order_id && /^\d{7}$/.test(String(parsed.order_id))) {
                 document.getElementById('order_id').value = String(parsed.order_id);
             }
-            if (parsed.s_date) document.getElementById('s_date').value = parsed.s_date;
-            if (parsed.e_date) document.getElementById('e_date').value = parsed.e_date;
+            // 상대 날짜 안전 보정 (경량 모델이 간혹 어제/그저께 계산을 놓칠 때 100% 보정)
+            let sDate = parsed.s_date || todayStr;
+            let eDate = parsed.e_date || todayStr;
+            if (/어제/.test(raw) && sDate === todayStr) sDate = yesterdayStr;
+            if (/그저께|그제|이틀\s*전/.test(raw) && sDate === todayStr) sDate = twoDaysAgoStr;
+            if (/어제/.test(raw) && !/오늘/.test(raw) && eDate === todayStr) eDate = yesterdayStr;
+            if (/오늘/.test(raw)) eDate = todayStr;
+
+            if (sDate) document.getElementById('s_date').value = sDate;
+            if (eDate) document.getElementById('e_date').value = eDate;
             if (parsed.work_status && ['정상작업', '오더취소', '재작업'].includes(parsed.work_status)) {
                 document.getElementById('work_status').value = parsed.work_status;
                 toggleCancelReason();
