@@ -185,12 +185,15 @@
             <div style="font-size: 14px; color: #555; margin-top: 5px; font-weight: 600;">내방객 출입 신청 시스템</div>
         </div>
 
-        <!-- 0. 카톡/문자 복붙 자동 채우기 -->
+        <!-- 0. 카톡/문자 복붙 AI 자동 채우기 -->
         <div class="paste-box">
-            <label style="color: var(--hw-orange); font-size: 14px; margin-bottom: 6px;">📋 단톡방/문자 복붙 → 자동 채우기</label>
-            <textarea id="raw_paste" placeholder="업체명, 방문일, 방문사유, 방문객 명단(이름/생년월일/연락처)을 그대로 복사해 붙여넣고 [자동 채우기]를 누르세요!"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <label style="color: var(--hw-orange); font-size: 14px; margin: 0;">🤖 단톡방/문자 복붙 → AI 자동 채우기</label>
+                <button type="button" onclick="configApiKey()" style="padding:4px 8px;font-size:11px;font-weight:700;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">🔑 AI 키</button>
+            </div>
+            <textarea id="raw_paste" placeholder="카톡·문자 내용을 편하게 붙여넣으세요! (여러 명 명단도 OK)&#10;예: 내일 엔에스 홍길동 850312 010-1234-5678, 김철수 880515 010-9876-5432 3공장 블로워 점검"></textarea>
             <div class="paste-btns">
-                <button type="button" class="btn-autofill" onclick="autoFillVisitor()">✨ 자동 채우기</button>
+                <button type="button" class="btn-autofill" id="btn_autofill" onclick="autoFillVisitor()">✨ AI로 자동 채우기</button>
                 <button type="button" class="btn-clear-p" onclick="clearRawPaste()">지우기</button>
             </div>
             <div id="parse_msg" class="parse-msg"></div>
@@ -524,15 +527,107 @@
             return res;
         }
 
-        function autoFillVisitor() {
+        function _localDateOffset(days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        }
+
+        function configApiKey() {
+            const cur = localStorage.getItem('hw_gemini_api_key') || '';
+            const val = prompt('무료 Gemini API 키를 입력해 주세요.\n(정비이력·내방객·공사 페이지가 같은 키를 자동 공유합니다.)', cur);
+            if (val !== null) {
+                const t = val.trim();
+                const msgEl = document.getElementById('parse_msg');
+                if (t) {
+                    localStorage.setItem('hw_gemini_api_key', t);
+                    msgEl.style.color = '#15803d';
+                    msgEl.textContent = '🔑 AI 키가 저장되었습니다!';
+                } else {
+                    localStorage.removeItem('hw_gemini_api_key');
+                    msgEl.style.color = '#64748b';
+                    msgEl.textContent = 'AI 키를 삭제했습니다 (기본 파서로 동작).';
+                }
+            }
+        }
+
+        async function _parseVisitorWithAI(raw, apiKey) {
+            const todayStr = _localDateOffset(0);
+            const tomorrowStr = _localDateOffset(1);
+            const dayAfterStr = _localDateOffset(2);
+            const yesterdayStr = _localDateOffset(-1);
+            const promptText = `당신은 한화임팩트 울산공장 내방객 출입신청 자동 입력 비서입니다.
+[날짜 기준표] 오늘=${todayStr}, 내일=${tomorrowStr}, 모레=${dayAfterStr}, 어제=${yesterdayStr}
+아래 텍스트에서 내방객 출입 정보를 추출해 순수 JSON만 출력하세요 (코드블록 \`\`\` 및 설명 금지).
+
+[규칙]
+1. people 배열에 언급된 모든 방문객을 빠짐없이 넣으세요.
+2. birth는 반드시 8자리 숫자 YYYYMMDD로 변환 (예: 880515 -> "19880515", 010315 -> "20010315"). 모르면 "".
+3. phone_f는 010 뒤 중간 4자리, phone_b는 끝 4자리 (예: 010-1234-5678 -> phone_f:"1234", phone_b:"5678").
+4. person_type은 ["업무협의","현장점검","진단/조사","면접"] 중 1개.
+5. dest1은 ["공정지역","비공정지역"] 중 1개 (공장/현장/설비면 공정지역, 본관/사무동/회의실이면 비공정지역).
+6. manager는 직급 빼고 2~4자 성함만.
+
+[입력 텍스트]
+${raw}
+
+[출력 JSON]
+{"company":"","s_date":"${todayStr}","person_type":"업무협의","dest1":"공정지역","dest2":"","reason":"","manager":"","people":[{"name":"","company":"","birth":"","phone_f":"","phone_b":""}]}`;
+
+            for (const model of ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']) {
+                try {
+                    const resp = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.1 } })
+                        }
+                    );
+                    if (!resp.ok) continue;
+                    const data = await resp.json();
+                    const txt = (data?.candidates?.[0]?.content?.parts?.[0]?.text || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+                    const m = txt.match(/\{[\s\S]*\}/);
+                    if (m) return JSON.parse(m[0]);
+                } catch (e) {}
+            }
+            return null;
+        }
+
+        async function autoFillVisitor() {
             const raw = document.getElementById('raw_paste').value.trim();
             const msgEl = document.getElementById('parse_msg');
+            const btn = document.getElementById('btn_autofill');
             if (!raw) {
                 msgEl.style.color = '#dc2626';
                 msgEl.textContent = '먼저 붙여넣을 내용을 입력해 주세요!';
                 return;
             }
-            const parsed = parseVisitorText(raw);
+
+            const apiKey = localStorage.getItem('hw_gemini_api_key') || '';
+            let parsed = null;
+            let usedAi = false;
+
+            if (apiKey) {
+                btn.disabled = true;
+                btn.textContent = '🤖 AI 분석 중...';
+                msgEl.style.color = '#0369a1';
+                msgEl.textContent = 'Gemini AI가 내방객 정보를 정리하고 있습니다...';
+                parsed = await _parseVisitorWithAI(raw, apiKey);
+                btn.disabled = false;
+                btn.textContent = '✨ AI로 자동 채우기';
+                if (parsed) usedAi = true;
+            }
+            if (!parsed) {
+                parsed = parseVisitorText(raw);
+            }
+
+            // 상대 날짜 안전 보정
+            const todayStr = _localDateOffset(0);
+            if (/내일/.test(raw) && (!parsed.s_date || parsed.s_date === todayStr)) parsed.s_date = _localDateOffset(1);
+            if (/모레/.test(raw) && (!parsed.s_date || parsed.s_date === todayStr)) parsed.s_date = _localDateOffset(2);
+
             if (parsed.company) document.getElementById('company').value = parsed.company;
             if (parsed.s_date) document.getElementById('s_date').value = parsed.s_date;
             if (parsed.person_type) document.getElementById('person_type').value = parsed.person_type;
@@ -544,31 +639,32 @@
                 matchApprover();
             }
 
-            if (parsed.people.length > 0) {
+            const people = Array.isArray(parsed.people) ? parsed.people : [];
+            if (people.length > 0) {
                 document.getElementById('additional_visitors').innerHTML = '';
-                const p0 = parsed.people[0];
+                const p0 = people[0];
                 document.getElementById('name').value = p0.name || '';
-                document.getElementById('birth').value = p0.birth || '';
-                document.getElementById('phone_f').value = p0.phone_f || '';
-                document.getElementById('phone_b').value = p0.phone_b || '';
+                document.getElementById('birth').value = String(p0.birth || '').replace(/\D/g, '').slice(0, 8);
+                document.getElementById('phone_f').value = String(p0.phone_f || '').replace(/\D/g, '').slice(0, 4);
+                document.getElementById('phone_b').value = String(p0.phone_b || '').replace(/\D/g, '').slice(0, 4);
                 if (!parsed.company && p0.company) document.getElementById('company').value = p0.company;
 
-                for (let i = 1; i < parsed.people.length; i++) {
+                for (let i = 1; i < people.length; i++) {
                     addVisitorCard();
                     const cards = document.querySelectorAll('.visitor-card');
                     const card = cards[cards.length - 1];
-                    const p = parsed.people[i];
+                    const p = people[i];
                     card.querySelector('.v_name').value = p.name || '';
                     card.querySelector('.v_company').value = p.company || '';
-                    card.querySelector('.v_birth').value = p.birth || '';
-                    card.querySelector('.v_phone_f').value = p.phone_f || '';
-                    card.querySelector('.v_phone_b').value = p.phone_b || '';
+                    card.querySelector('.v_birth').value = String(p.birth || '').replace(/\D/g, '').slice(0, 8);
+                    card.querySelector('.v_phone_f').value = String(p.phone_f || '').replace(/\D/g, '').slice(0, 4);
+                    card.querySelector('.v_phone_b').value = String(p.phone_b || '').replace(/\D/g, '').slice(0, 4);
                 }
                 updateVisitorBadge();
             }
 
             msgEl.style.color = '#15803d';
-            msgEl.textContent = `✅ 자동 채우기 완료! (인원 ${parsed.people.length}명 감지) — 아래 내용 확인 후 제출하세요.`;
+            msgEl.textContent = `✅ ${usedAi ? 'AI' : '자동'} 채우기 완료! (인원 ${people.length}명) — 아래 내용 확인 후 제출하세요.`;
         }
 
         // 신청서 제출
