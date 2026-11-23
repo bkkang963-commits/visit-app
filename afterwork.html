@@ -188,12 +188,69 @@
       margin-top: 6px;
       line-height: 1.4;
     }
+    .paste-card {
+      background: #fff7ed;
+      border: 1.5px dashed var(--primary);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .paste-card .card-title {
+      color: #c2410c;
+      border-bottom-color: #fed7aa;
+    }
+    .paste-actions {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .btn-parse {
+      background-color: #0f2537;
+      color: #fff;
+      height: 40px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-clear-paste {
+      background-color: #e2e8f0;
+      color: #334155;
+      height: 40px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .parse-status {
+      font-size: 12px;
+      color: #15803d;
+      font-weight: 600;
+      margin-top: 6px;
+      min-height: 16px;
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <h2>🌙 일과후작업 신청</h2>
     <p>한화임팩트 공무팀 일과 후 작업계획 접수</p>
+  </div>
+
+  <!-- 0. 단톡방 복붙 자동 채우기 카드 -->
+  <div class="paste-card">
+    <div class="card-title">📋 단톡방 글 복붙 → 자동 채우기</div>
+    <div class="form-group">
+      <textarea id="rawPasteInput" style="min-height:110px;" placeholder="단톡방에서 동료들이 올린 일과후/야간작업 글을 여러 개 그대로 복사해서 붙여넣고 [자동 채우기]를 누르세요!"></textarea>
+    </div>
+    <div class="paste-actions">
+      <button type="button" class="btn-parse" onclick="parseAndFillTasks()">✨ 자동 채우기</button>
+      <button type="button" class="btn-clear-paste" onclick="clearRawPaste()">지우기</button>
+    </div>
+    <div id="parseStatus" class="parse-status"></div>
   </div>
 
   <form id="afterworkForm">
@@ -415,9 +472,173 @@
       dateInput.value = today;
       dateInput.addEventListener('change', updateDateTexts);
 
+      const savedEmp = localStorage.getItem('afterwork_emp_id');
+      if (savedEmp) document.getElementById('emp_id').value = savedEmp;
+      document.getElementById('emp_id').addEventListener('change', (e) => {
+        localStorage.setItem('afterwork_emp_id', e.target.value.trim());
+      });
+
       updateDateTexts();
       addTask();
     });
+
+    // =========================================================================
+    // 단톡방 글 복붙 -> 스마트 자동 파싱 & 작업 카드 자동 생성
+    // =========================================================================
+    function clearRawPaste() {
+      document.getElementById('rawPasteInput').value = '';
+      document.getElementById('parseStatus').textContent = '';
+    }
+
+    function detectPart(text, fallbackPart = '기계') {
+      if (/분석기|O2|GC|계기\s*\(분석\)|분석파트/i.test(text)) return '계기(분석)';
+      if (/전기|고압|전원|결선|변압기|차단기|MCC|모터\s*전원/i.test(text)) return '전기';
+      if (/배관|플랜지|FLANGE|밸브|VALVE|파이프|용접|트랩/i.test(text)) return '배관';
+      if (/계기|제어|트랜스미터|센서|레벨|컨트롤|계장/i.test(text)) return '계기';
+      if (/기계|G\/BOX|기어박스|펌프|블로워|컴프|압축기|회전체|설치|교체|정비/i.test(text)) return '기계';
+      return fallbackPart;
+    }
+
+    function extractTime(line) {
+      let timeStr = '';
+      let cleaned = line;
+      // 예: ~ 20시, ~20:00, (20시), (21:30까지), 20시까지
+      const m1 = cleaned.match(/(?:~\s*|\(\s*)?(\d{1,2})\s*(?::\s*(\d{2})|시(?:\s*(\d{1,2})분?)?)\s*(?:까지)?\s*\)?/);
+      if (m1) {
+        const hh = String(parseInt(m1[1], 10)).padStart(2, '0');
+        const mm = String(parseInt(m1[2] || m1[3] || '0', 10)).padStart(2, '0');
+        timeStr = `~${hh}:${mm}`;
+        cleaned = cleaned.replace(m1[0], ' ').replace(/\s*[.~-]+\s*$/, '').replace(/\s+/g, ' ').trim();
+      }
+      return { timeStr, cleaned };
+    }
+
+    function isWorkerListLine(line) {
+      const s = line.trim();
+      if (!s) return false;
+      // "김경도,김창수,임희철,박철 4명" or "제이콘 외 3명" or "송학선, 권규남, 최환석"
+      if (/외\s*\d+\s*명?/.test(s)) return true;
+      if (/\d+\s*명\s*$/.test(s) && /[,·\s]/.test(s)) return true;
+      const parts = s.split(/[,/·]+/).map(x => x.trim()).filter(Boolean);
+      if (parts.length >= 2 && parts.every(p => /^[가-힣]{2,4}$/.test(p))) return true;
+      return false;
+    }
+
+    function cleanWorkersText(line) {
+      let s = line.trim();
+      s = s.replace(/^(?:작업자|인원)\s*[:：\/]\s*/, '');
+      // "김경도,김창수,임희철,박철 4명" -> "김경도, 김창수, 임희철, 박철" (단, "외 3명"은 유지!)
+      if (!/외\s*\d+\s*명?/.test(s)) {
+        s = s.replace(/\s+\d+\s*명\s*$/, '');
+      }
+      s = s.replace(/\s*,\s*/g, ', ').replace(/\s+/g, ' ').trim();
+      return s;
+    }
+
+    function parseGroupChatText(raw) {
+      // 오전/오후 3:35 같은 카톡/텔레그램 복사 타임스탬프 제거
+      const cleanedRaw = raw
+        .replace(/(?:오전|오후)\s*\d{1,2}:\d{2}/g, '')
+        .replace(/\r\n/g, '\n');
+
+      const lines = cleanedRaw.split('\n').map(l => l.trim());
+      const tasks = [];
+      let curPart = '기계';
+      let curSup = '';
+      let pendingTask = null;
+
+      function flushTask() {
+        if (pendingTask && pendingTask.content) {
+          if (!pendingTask.workers && pendingTask.supervisor) {
+            pendingTask.workers = pendingTask.supervisor;
+          }
+          pendingTask.count = calculateWorkerCount(pendingTask.workers);
+          tasks.push(pendingTask);
+        }
+        pendingTask = null;
+      }
+
+      for (const line of lines) {
+        if (!line) {
+          flushTask();
+          continue;
+        }
+        // 헤더성 문구 무시 (단, 새 블록 시작 신호로 처리)
+        if (/^(?:금일|오늘)?\s*(?:야간작업|일과후\s*작업|잔업)\s*(?:신청|계획|공유)?\s*[:：]?$/.test(line)) {
+          flushTask();
+          curPart = '기계';
+          continue;
+        }
+        // "관리감독자/ 김일동" 또는 "감독자: 석종균"
+        const mSup = line.match(/^(?:관리)?감독자\s*[:：\/]\s*([가-힣]{2,4})(?:\s*(?:주임|프로|과장|대리|사원|차장|부장|책임|선임|님))?/);
+        if (mSup) {
+          flushTask();
+          curSup = mSup[1].trim();
+          continue;
+        }
+        // "전기파트 이상득 주임" / "기계파트 홍길동 프로" / "배관 김경일"
+        const mPartSup = line.match(/^(기계|배관|계기\(분석\)|계기|전기|분석)(?:파트|팀)?\s+([가-힣]{2,4})(?:\s*(?:주임|프로|과장|대리|사원|차장|부장|책임|선임|님))?$/);
+        if (mPartSup) {
+          flushTask();
+          curPart = detectPart(mPartSup[1], '기계');
+          curSup = mPartSup[2].trim();
+          continue;
+        }
+        // 작업자 명단 줄
+        if (pendingTask && isWorkerListLine(line)) {
+          pendingTask.workers = cleanWorkersText(line);
+          flushTask();
+          continue;
+        }
+        // 그 외는 작업 내용 줄!
+        flushTask();
+        const { timeStr, cleaned } = extractTime(line);
+        const content = cleaned.replace(/^[-•*\d.)]+\s*/, '').trim();
+        if (!content) continue;
+        const detectedPart = detectPart(content, curPart);
+        pendingTask = {
+          part: detectedPart,
+          supervisor: curSup,
+          workers: '',
+          content: content,
+          time: timeStr || '~20:00',
+          count: 0,
+        };
+      }
+      flushTask();
+      return tasks;
+    }
+
+    function parseAndFillTasks() {
+      const raw = document.getElementById('rawPasteInput').value.trim();
+      const statusEl = document.getElementById('parseStatus');
+      if (!raw) {
+        statusEl.style.color = '#dc2626';
+        statusEl.textContent = '먼저 단톡방 글을 붙여넣어 주세요!';
+        return;
+      }
+      const parsed = parseGroupChatText(raw);
+      if (!parsed.length) {
+        statusEl.style.color = '#dc2626';
+        statusEl.textContent = '작업 항목을 찾지 못했습니다. 형식을 확인해 주세요.';
+        return;
+      }
+
+      // 기존에 비어있는 기본 카드 1개뿐이면 지우고 새로 채움
+      const existingCards = document.querySelectorAll('.task-card');
+      if (existingCards.length === 1) {
+        const c = existingCards[0];
+        const isEmpty = !c.querySelector('.task-supervisor').value.trim()
+          && !c.querySelector('.task-workers').value.trim()
+          && !c.querySelector('.task-content').value.trim();
+        if (isEmpty) c.remove();
+      }
+
+      parsed.forEach(t => addTask(t));
+      updateTotalCount();
+      statusEl.style.color = '#15803d';
+      statusEl.textContent = `✅ ${parsed.length}건 자동 채우기 완료! 아래 내용 확인 후 접수하세요.`;
+    }
 
     // 제출 처리
     document.getElementById('afterworkForm').addEventListener('submit', function(e) {
